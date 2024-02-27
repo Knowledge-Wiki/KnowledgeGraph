@@ -112,7 +112,7 @@ class KnowledgeGraph {
 /*
 {{#knowledgegraph:
 root=TestPage
-|only-properties=HasProperty1,HasProperty2
+|properties=HasProperty1,HasProperty2
 |permalink=false
 |autoexpand=false
 |depth=3
@@ -121,10 +121,10 @@ root=TestPage
 		$defaultParameters = [
 			'root' => [ '', 'string' ],
 			'nodes' => [ '', 'array' ],
-			'only-properties' => [ '', 'array' ],
+			'properties' => [ '', 'array' ],
 			'nodes-by-properties' => [ '', 'array' ],
 			'permalink' => [ 'false', 'boolean' ],
-			// 'autoexpand' => [ 'false', 'boolean' ],
+			'autoexpand' => [ 'false', 'boolean' ],
 			'depth' => [ '3', 'integer' ],
 			'nodeoptions' => [ '', 'string' ],
 		];
@@ -143,19 +143,18 @@ root=TestPage
 
 		self::initSMW();
 		$propertiesById = [];
-		foreach ( $params['nodes'] as $titleText ) {
-			$title_ = Title::newFromText( $titleText );
-			if ( $title_ && $title_->isKnown() ) {
-				// $id_ = $title_->getArticleID();
-				// $nodes[$id_] = Title::newFromText( $titleText )->getText();
-				// $propertiesById[$id_] = self::getSemanticData( $title_ );
+		// $nodes = [];
+		// if ( empty( $params['properties'] ) ) {
+			foreach ( $params['nodes'] as $titleText ) {
+				$title_ = Title::newFromText( $titleText );
+				if ( $title_ ) {
+					// $id_ = $title_->getArticleID();
+					$nodes[$id_] = Title::newFromText( $titleText )->getText();
+					// $propertiesById[$id_] = self::getSemanticData( $title_ );
 					
-				// if ( !isset( self::$nodes[$id_] ) ) {
-				if ( !isset( self::$nodes[$title_->getFullText()] ) ) {
-					self::$nodes[$title_->getFullText()] = self::getSemanticData( $title_, $params['only-properties'], 0, $params['depth'] );
 				}
 			}
-		}
+		// }
 
 		$nodeOptions = [];
 		if ( !empty( $params['nodeoptions'] ) ) {
@@ -175,15 +174,12 @@ root=TestPage
 			}
 		}
 
-		$params['nodes'] = self::$nodes;
-		// $params['propertiesById'] = $propertiesById;
+		$params['nodes'] = $nodes;
+		$params['propertiesById'] = $propertiesById;
 		$params['nodeOptions'] = $nodeOptions;
 		$params['propertyOptions'] = $propertyOptions;
 		self::$graphs[] = $params;
 
-// print_r($params);
-
-// exit();
 		$out->setExtensionData( 'knowledgegraphs', self::$graphs );
 
 		return [
@@ -319,12 +315,9 @@ root=TestPage
 	/**
 	 * @see https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/extensions/PageProperties/+/refs/heads/1.0.3/includes/PageProperties.php
 	 * @param Title $title
-	 * @param array $onlyProperties
-	 * @param int $depth
-	 * @param int $maxDepth
 	 * @return array
 	 */
-	public static function getSemanticData( Title $title, $onlyProperties, $depth, $maxDepth ) {
+	public static function getSemanticData( Title $title, $depth ) {
 		$langCode = \RequestContext::getMain()->getLanguage()->getCode();
 		$propertyRegistry = \SMW\PropertyRegistry::getInstance();
 		$dataTypeRegistry = \SMW\DataTypeRegistry::getInstance();
@@ -344,13 +337,6 @@ root=TestPage
 
 			$canonicalLabel = $property->getCanonicalLabel();
 			$preferredLabel = $property->getPreferredLabel();
-
-			if ( count( $onlyProperties )
-				&& !in_array( $canonicalLabel, $onlyProperties ) 
-				&& !in_array( $preferredLabel, $onlyProperties ) ) {
-				continue;	
-			}
-
 			$description = $propertyRegistry->findPropertyDescriptionMsgKeyById( $key );
 			$typeID = $property->findPropertyTypeID();
 
@@ -381,15 +367,9 @@ root=TestPage
 					$dataValue->setOption( 'form/short', true );
 
 					$output[$canonicalLabel]['values'][] = $dataValue->getWikiValue();
-
-					if ( $typeID === '_wpg' && $depth <= $maxDepth ) {
-						$title_ = $dataItem->getTitle();
-						// $id_ = $title_->getArticleID();
-					 	// if ( !isset( self::$nodes[$id_] ) ) {
-					 	if ( $title_ && $title_->isKnown()
-					 		&& !isset( self::$nodes[$title_->getFullText()] ) ) {
-							self::$nodes[$title_->getFullText()] = self::getSemanticData( $title_, $onlyProperties, ++$depth, $maxDepth );
-						}
+					
+					if ( $typeID === '_wpg' && !isset( $output[$canonicalLabel] ) ) {
+						$nodes[] getSemanticData( $dataItem->getTitle() );
 					}
 				}
 			}

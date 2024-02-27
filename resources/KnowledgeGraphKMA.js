@@ -13,7 +13,15 @@ KnowledgeGraphKMA = function () {
 	var Edges = new vis.DataSet([]);
 	var SelectedLabel = null;
 
-	function initialize(container, options) {
+	function initialize(container, config) {
+		console.log('config', config);
+
+		var toolbar = createToolbar();
+
+		toolbar.$element.insertBefore(container);
+
+		var options = getDefaultOptions();
+
 		//create the network
 		this.network = new vis.Network(
 			container,
@@ -29,17 +37,51 @@ KnowledgeGraphKMA = function () {
 			if (nodeId !== undefined) {
 				var clickedNode = Nodes.get(nodeId);
 
-				   // Show popup with node information
-       			   //self.network.showPopup(nodeId, '<div>' + clickedNode.label + '</div>');
+				// Show popup with node information
+				//self.network.showPopup(nodeId, '<div>' + clickedNode.label + '</div>');
 
-				openDialog( nodeId );
+				openDialog(nodeId);
 				return;
 			}
-			
+
 			openDialog(null);
 
 			Canvas = params.pointer.canvas;
 		});
+	}
+
+	function getDefaultOptions() {
+		var options = {
+			autoResize: true,
+			height: '100%',
+			width: '100%',
+			locale: 'en',
+			//  locales: locales,
+			clickToUse: false,
+			configure: {},
+			edges: {},
+			nodes: {},
+			groups: {},
+			layout: {},
+			interaction: {},
+			manipulation: {},
+			physics: {
+				stabilization: {
+					enabled: true,
+				},
+				barnesHut: {
+					gravitationalConstant: -40000,
+					centralGravity: 0,
+					springLength: 0,
+					springConstant: 0.5,
+					damping: 1,
+					avoidOverlap: 0,
+				},
+				maxVelocity: 5,
+			},
+		};
+
+		return options;
 	}
 
 	function openDialog(nodeId) {
@@ -70,7 +112,7 @@ KnowledgeGraphKMA = function () {
 			x: Canvas.x,
 			y: Canvas.y,
 			physics: false,
-			title: 'sdds <ul> <li>a</ul>'
+			title: 'sdds <ul> <li>a</ul>',
 		});
 		var properties = [];
 		for (var propLabel in Properties[SelectedLabel]) {
@@ -146,7 +188,7 @@ KnowledgeGraphKMA = function () {
 			action: 'delete',
 			label: 'Delete',
 			flags: 'destructive',
-			modes: [ 'edit' ]
+			modes: ['edit'],
 		},
 	];
 
@@ -250,14 +292,13 @@ KnowledgeGraphKMA = function () {
 		return MyDialog.super.prototype.getSetupProcess
 			.call(this, data)
 			.next(function () {
-				if ( data && data.nodeId ) {
+				if (data && data.nodeId) {
 					SelectedLabel = data.nodeId;
-					console.log('SelectedLabel',SelectedLabel)
-					console.log('Properties',Properties)
-					
-					this.initializePropertyPanel();
-					this.actions.setMode( 'edit');
+					console.log('SelectedLabel', SelectedLabel);
+					console.log('Properties', Properties);
 
+					this.initializePropertyPanel();
+					this.actions.setMode('edit');
 				} else {
 					this.actions.setMode('select');
 				}
@@ -265,10 +306,10 @@ KnowledgeGraphKMA = function () {
 	};
 
 	MyDialog.prototype.initializePropertyPanel = function () {
-		this.displayPropertiesSwitch();		
+		this.displayPropertiesSwitch();
 		var panel = this.stackLayout.getItems()[1];
 		this.stackLayout.setItem(panel);
-	}
+	};
 
 	// Specify processes to handle the actions.
 	MyDialog.prototype.getActionProcess = function (action) {
@@ -299,8 +340,9 @@ KnowledgeGraphKMA = function () {
 										console.log('thisRes', thisRes);
 										if ('data' in thisRes[payload.action]) {
 											SelectedLabel = payload.title;
-											Properties[SelectedLabel] = thisRes[payload.action].data.properties;
-		
+											Properties[SelectedLabel] =
+												thisRes[payload.action].data.properties;
+
 											selfDialog.initializePropertyPanel();
 											selfDialog.actions.setMode('properties');
 											resolve();
@@ -348,6 +390,130 @@ KnowledgeGraphKMA = function () {
 			}, this);
 	};
 
+	function createToolbar() {
+		var toolFactory = new OO.ui.ToolFactory();
+		var toolGroupFactory = new OO.ui.ToolGroupFactory();
+
+		var toolbar = new OO.ui.Toolbar(toolFactory, toolGroupFactory, {
+			actions: true,
+		});
+
+		var onSelect = function () {
+			var toolName = this.getName();
+
+			switch (toolName) {
+				case 'add-node':
+					break;
+				case 'nodes-by-property':
+					break;
+
+				case 'export-graph':
+					break;
+			}
+
+			this.setActive(false);
+		};
+
+		var toolGroup = [
+			{
+				name: 'add-node',
+				icon: 'add',
+				title: 'add node',
+				onSelect: onSelect,
+			},
+			{
+				name: 'nodes-by-property',
+				icon: 'add',
+				title: 'add nodes by property',
+				onSelect: onSelect,
+			},
+			{
+				name: 'export-graph',
+				icon: 'add',
+				title: 'export graph',
+				onSelect: onSelect,
+			},
+		];
+		createToolGroup(toolFactory, 'group', toolGroup);
+
+		toolbar.setup([
+			{
+				name: 'my-group',
+				// type: "bar",
+				// label: "Create property",
+				include: [{ group: 'group' }],
+			},
+		]);
+
+		return toolbar;
+	}
+
+	function getNestedProp(path, obj) {
+		return path.reduce((xs, x) => (xs && xs[x] ? xs[x] : null), obj);
+	}
+
+	function createTool(obj, config) {
+		var Tool = function () {
+			// Tool.super.apply( this, arguments );
+			Tool.super.call(this, arguments[0], config);
+
+			OO.ui.mixin.PendingElement.call(this, {});
+
+			if (getNestedProp(['data', 'disabled'], config)) {
+				// this.setPendingElement(this.$element)
+				// this.pushPending();
+				this.setDisabled(true);
+			}
+
+			if (getNestedProp(['data', 'pending'], config)) {
+				// this.setPendingElement(this.$element)
+				this.pushPending();
+			}
+
+			// @see https://gerrit.wikimedia.org/r/plugins/gitiles/oojs/ui/+/c2805c7e9e83e2f3a857451d46c80231d1658a0f/demos/pages/toolbars.js
+			this.toggled = false;
+			if (config.init) {
+				config.init.call(this);
+			}
+		};
+
+		OO.inheritClass(Tool, OO.ui.Tool);
+		OO.mixinClass(Tool, OO.ui.mixin.PendingElement);
+
+		Tool.prototype.onSelect = function () {
+			if (obj.onSelect) {
+				obj.onSelect.call(this);
+			} else {
+				this.toggled = !this.toggled;
+				this.setActive(this.toggled);
+			}
+			// Tool.emit( 'updateState' );
+		};
+
+		Tool.prototype.onUpdateState = function () {
+			this.popPending();
+			this.setDisabled(false);
+		};
+
+		for (var i in obj) {
+			Tool.static[i] = obj[i];
+		}
+
+		Tool.static.displayBothIconAndLabel = true;
+
+		return Tool;
+	}
+
+	function createToolGroup(toolFactory, groupName, tools) {
+		tools.forEach(function (tool) {
+			var obj = jQuery.extend({}, tool);
+			obj.group = groupName;
+			var config = tool.config ? tool.config : {};
+			delete obj.config;
+			toolFactory.register(createTool(obj, config));
+		});
+	}
+
 	function getProperties(pageids) {
 		console.log('pageids', pageids);
 
@@ -371,9 +537,26 @@ KnowledgeGraphKMA = function () {
 			console.log(err);
 		});
 	}
-	
+
 	return {
-		initialize
-	}
+		initialize,
+	};
 };
 
+$(document).ready(function () {
+	var semanticGraphs = JSON.parse(mw.config.get('knowledgegraphs'));
+
+	$('.KnowledgeGraph').each(function (index) {
+		var graphData = semanticGraphs[index];
+		var defaultOptions = {
+			nodes: {},
+			nodeoptions: {},
+			propertyoptions: {},
+		};
+
+		var config = $.extend(defaultOptions, graphData);
+
+		var graph = new KnowledgeGraphKMA();
+		graph.initialize(this, config);
+	});
+});

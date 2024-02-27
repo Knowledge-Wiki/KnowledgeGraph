@@ -55,7 +55,13 @@
             ],
             "scripts":[
                 "visNetwork/vis-network.min.js",
-                "KnowledgeGraphKMA.js"
+                "KnowledgeGraphKMA.js",
+                "KnowledgeGraph.js",
+                "KnowledgeGraphData.js",
+                "KnowledgeGraphUI.js",
+                "KnowledgeGraphUtils.js",
+                "KnowledgeGraphBrowser.js",
+                "KnowledgeGraph_init.js"
             ],
             "dependencies": [
 				"mediawiki.util",
@@ -66,6 +72,20 @@
 				"oojs-ui-toolbars",
 				"oojs-ui-windows",
 				"mediawiki.widgets"
+            ],
+            "position":"top"
+        },
+		"ext.MwJson":{
+            "localBasePath":"resources/MwJson",
+            "remoteExtPath":"KnowledgeGraph/resources/MwJson",
+            "styles":[
+            ],
+            "scripts":[
+            	"MwJson.js",
+            	"MwJson_api.js",
+            	"MwJson_util.js"
+            ],
+            "dependencies": [
             ],
             "position":"top"
         }
