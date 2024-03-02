@@ -39,7 +39,7 @@ KnowledgeGraph = function () {
 				new mw.Api()
 					.postWithToken('csrf', payload)
 					.done(function (thisRes) {
-						console.log('thisRes', thisRes);
+						// console.log('thisRes', thisRes);
 						if ('data' in thisRes[payload.action]) {
 							var data_ = JSON.parse(thisRes[payload.action].data);
 							Data = jQuery.extend(Data, data_);
@@ -421,9 +421,6 @@ KnowledgeGraph = function () {
 			.next(function () {
 				if (data && data.nodeId) {
 					SelectedNode = data.nodeId;
-					console.log('SelectedNode', SelectedNode);
-					console.log('Properties', Properties);
-
 					this.initializePropertyPanel();
 					this.actions.setMode('edit');
 				} else {
@@ -440,8 +437,8 @@ KnowledgeGraph = function () {
 
 	// Specify processes to handle the actions.
 	MyDialog.prototype.getActionProcess = function (action) {
-		console.log('action', action);
-		console.log('titleInputWidget', this.titleInputWidget.getValue());
+		// console.log('action', action);
+		// console.log('titleInputWidget', this.titleInputWidget.getValue());
 
 		var selfDialog = this;
 		switch (action) {
@@ -627,30 +624,6 @@ KnowledgeGraph = function () {
 			var config = tool.config ? tool.config : {};
 			delete obj.config;
 			toolFactory.register(createTool(obj, config));
-		});
-	}
-
-	function getProperties(pageids) {
-		console.log('pageids', pageids);
-
-		return new Promise((resolve, reject) => {
-			var payload = {
-				action: 'KnowledgeGraph-semantic-properties',
-				pageids: pageids.join(','),
-			};
-
-			mw.loader.using('mediawiki.api', function () {
-				new mw.Api()
-					.postWithToken('csrf', payload)
-					.done(function (res) {
-						console.log('res', res);
-					})
-					.fail(function (res) {
-						console.log('error' + res);
-					});
-			});
-		}).catch((err) => {
-			console.log(err);
 		});
 	}
 
