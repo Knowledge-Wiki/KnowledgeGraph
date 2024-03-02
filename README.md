@@ -15,7 +15,6 @@ nodes=Page A, Page B
 |property-options?HasProperty1=Mediawiki:knowledgegraphNodeOptionsHasProperty1
 |show-toolbar=false
 |show-property-type=false
-|show-toolbar=true
 |width=400px
 |height=400px
 }}
