@@ -117,6 +117,7 @@ nodes=TestPage
 |graph-options=Mediawiki:knowledgegraphGraphOptions
 |property-options?HasProperty1=Mediawiki:knowledgegraphNodeOptionsHasProperty1
 |show-toolbar=false
+|show-property-type=false
 |width= 400px
 |height= 400px
 }}

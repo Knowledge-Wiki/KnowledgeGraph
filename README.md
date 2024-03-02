@@ -14,19 +14,12 @@ nodes=Page A, Page B
 |graph-options=Mediawiki:knowledgegraphGraphOptions
 |property-options?HasProperty1=Mediawiki:knowledgegraphNodeOptionsHasProperty1
 |show-toolbar=false
+|show-property-type=false
+|show-toolbar=true
 |width=400px
 |height=400px
 }}
 ```
-
-'Nodes': the pages to start with
-'only-properties' restricts the retrieved properties
-'depth' is the recursion depth (related pages autoexpand their properties by default)
-'graph-options' ... 
-'property-options' ... 
-'show-toolbar' ...
-'width' ... 
-'height' ...
 
 
 ## Credits
