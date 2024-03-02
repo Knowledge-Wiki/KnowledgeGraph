@@ -118,7 +118,7 @@ nodes=TestPage
 |property-options?HasProperty1=Mediawiki:knowledgegraphNodeOptionsHasProperty1
 |show-toolbar=false
 |width= 400px
-|heigth= 400px
+|height= 400px
 }}
 */
 		$defaultParameters = [

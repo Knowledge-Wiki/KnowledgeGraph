@@ -8,12 +8,29 @@ Insert a parser function like
 
 ```
 {{#knowledgegraph:
-root=TestPage
-|properties=HasProperty1,HasProperty2
-|permalink=false
-|autoexpand=false
+nodes=Page A, Page B
+|only-properties=HasProperty1,HasProperty2
 |depth=3
+|graph-options=Mediawiki:knowledgegraphGraphOptions
+|property-options?HasProperty1=Mediawiki:knowledgegraphNodeOptionsHasProperty1
+|show-toolbar=false
+|width=400px
+|height=400px
 }}
 ```
 
-'root' is the page to start with. 'properties' are the properties that a queried with a double-click on any node by default. 'permalink = true' will create a permalink every time you modify the graph restore it. 'autoexpand' will auto-query the given properties upon the given 'depth'.
+'Nodes': the pages to start with
+'only-properties' restricts the retrieved properties
+'depth' is the recursion depth (related pages autoexpand their properties by default)
+'graph-options' ... 
+'property-options' ... 
+'show-toolbar' ...
+'width' ... 
+'height' ...
+
+
+## Credits
+https://github.com/OpenSemanticLab/mediawiki-extensions-InteractiveSemanticGraph
+
+
+
