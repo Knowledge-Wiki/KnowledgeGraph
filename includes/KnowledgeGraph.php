@@ -7,6 +7,8 @@
  * @author thomas-topway-it for KM-A
  */
 
+use MediaWiki\Revision\SlotRecord;
+
 class KnowledgeGraph {
 	protected static $SMWOptions = null;
 	protected static $SMWApplicationFactory = null;
@@ -97,6 +99,29 @@ class KnowledgeGraph {
 	 */
 	public static function onParserFirstCallInit( Parser $parser ) {
 		$parser->setFunctionHook( 'knowledgegraph', [ self::class, 'parserFunctionKnowledgeGraph' ] );
+	}
+
+	/**
+	 * @param DatabaseUpdater|null $updater
+	 */
+	public static function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater = null ) {
+		$text = file_get_contents( __DIR__ . '/../data/KnowledgeGraphOptions.js' );
+		$user = RequestContext::getMain()->getUser();
+		$title = Title::makeTitleSafe( NS_MEDIAWIKI, 'KnowledgeGraphOptions' );
+
+		$wikiPage = self::getWikiPage( $title );
+		$pageUpdater = $wikiPage->newPageUpdater( $user );
+
+		// @see includes/Defines.php
+		$modelId = CONTENT_MODEL_JAVASCRIPT;
+		$slotContent = ContentHandler::makeContent( $text, $title, $modelId );
+		$slotName = SlotRecord::MAIN;
+		$pageUpdater->setContent( $slotName, $slotContent );
+				
+		$summary = "KnowledgeGraph";
+		$flags = EDIT_INTERNAL;
+		$comment = CommentStoreComment::newUnsavedComment( $summary );
+		$pageUpdater->saveRevision( $comment, $flags );
 	}
 
 	/**

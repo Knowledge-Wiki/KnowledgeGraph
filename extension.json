@@ -51,7 +51,8 @@
         }
     },
     "Hooks":{
-        "BeforePageDisplay":"KnowledgeGraph::onBeforePageDisplay",
+		"LoadExtensionSchemaUpdates": "KnowledgeGraph::onLoadExtensionSchemaUpdates",
+		"BeforePageDisplay":"KnowledgeGraph::onBeforePageDisplay",
 		"ParserFirstCallInit": "KnowledgeGraph::onParserFirstCallInit",
 		"OutputPageParserOutput": "KnowledgeGraph::onOutputPageParserOutput"
     }
