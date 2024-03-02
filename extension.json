@@ -21,10 +21,10 @@
 	},
     "AutoloadClasses":{
         "KnowledgeGraph":"includes/KnowledgeGraph.php",
-        "KnowledgeGraphApiSemanticProperties": "includes/api/KnowledgeGraphApiSemanticProperties.php"
+        "KnowledgeGraphApiLoadNodes": "includes/api/KnowledgeGraphApiLoadNodes.php"
 	},
 	"APIModules": {
-		"knowledgegraph-semantic-properties": "KnowledgeGraphApiSemanticProperties"		
+		"knowledgegraph-load-nodes": "KnowledgeGraphApiLoadNodes"
 	},
 	"ResourceModules":{
         "ext.KnowledgeGraph":{

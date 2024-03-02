@@ -7,161 +7,254 @@
  */
 
 KnowledgeGraph = function () {
-	var ModelProperties = {};
-	var Properties = {};
 	var Canvas = {};
 	var Nodes = new vis.DataSet([]);
 	var Edges = new vis.DataSet([]);
-	var SelectedLabel = null;
 	var Data = {};
+	var maxPropValueLength = 20;
+	var Config;
+	var Container;
+	var Properties = {};
+	var ModelProperties = {};
+	var SelectedNode = null;
+	var TmpData;
+	var Network;
 
-	function initialize(container, config) {
-		console.log('config', config);
+	function deleteNode(nodeId) {
+		var children = Network.getConnectedNodes(nodeId);
+		children = children.filter((x) => !(x in Data));
+		children.push(nodeId);
+		Nodes.remove(children);
+	}
 
-		$(container).width(config.width);
-		$(container).height(config.width);
+	function loadNodes(value) {
+		var payload = {
+			titles: value,
+			depth: Config.depth,
+			'only-properties': JSON.stringify(Config['only-properties']),
+			action: 'knowledgegraph-load-nodes',
+		};
+		return new Promise((resolve, reject) => {
+			mw.loader.using('mediawiki.api', function () {
+				new mw.Api()
+					.postWithToken('csrf', payload)
+					.done(function (thisRes) {
+						console.log('thisRes', thisRes);
+						if ('data' in thisRes[payload.action]) {
+							var data_ = JSON.parse(thisRes[payload.action].data);
+							Data = jQuery.extend(Data, data_);
+							resolve(data_);
+						} else {
+							reject();
+						}
+					})
+					.fail(function (thisRes) {
+						// eslint-disable-next-line no-console
+						console.error(payload.action, thisRes);
+						reject(thisRes);
+					});
+			});
+		});
+	}
 
-		var toolbar = createToolbar();
+	function addNode(label) {
+		if (Nodes.get(label) !== null) {
+			return;
+		}
 
-		toolbar.$element.insertBefore(container);
-
-		var options = getDefaultOptions();
-		
-		Data = config.data;
-
-		//create the network
-		this.network = new vis.Network(
-			container,
-			{ nodes: Nodes, edges: Edges },
-			config.graphOptions
+		var nodeConfig = jQuery.extend(
+			JSON.parse(JSON.stringify(Config.graphOptions.nodes)),
+			label in Config.propertyOptions ? Config.propertyOptions[label] : {},
+			{
+				id: label,
+				label: label,
+				shape: 'box',
+				font: { size: 30 },
+				// title: 'sdds <ul> <li>a</ul>',
+			}
 		);
 
-		for (var label in Data) {
-			if (Nodes.get(label) === null) {
-				Nodes.add(
-					jQuery.extend(
-						label in config.propertyOptions
-							? config.propertyOptions[label]
-							: {},
-						{
-							id: label,
-							label: label,
-							// color: '#6dbfa9',
-							shape: 'box',
-							font: { size: 30 },
-							// title: 'sdds <ul> <li>a</ul>',
-						}
-					)
-				);
+		if (!(label in Data)) {
+			nodeConfig.color = 'red';
+		}
+
+		if (Data[label] === null) {
+			nodeConfig.opacity = 0.5;
+			nodeConfig.shapeProperties.borderDashes = [5, 5];
+		}
+
+		Nodes.add(nodeConfig);
+	}
+
+	function createNodes(data) {
+		for (var label in data) {
+			addNode(label);
+
+			// not loaded
+			if (data[label] === null) {
+				continue;
 			}
 
-			for (var propLabel in Data[label]) {
+			for (var propLabel in data[label]) {
+				if (
+					propLabel in ModelProperties &&
+					ModelProperties[propLabel].getValue() === false
+				) {
+					continue;
+				}
+
 				var color = randomHSL();
+				var propLabel_ =
+					propLabel +
+					(!Config['show-property-type']
+						? ''
+						: ' (' + data[label][propLabel].typeLabel + ')');
 
-				console.log(
-					'Data[label][propLabel]',
-					Data[label][propLabel]
-				);
-
-				switch (Data[label][propLabel].typeId) {
+				switch (data[label][propLabel].typeId) {
 					case '_wpg':
-						for (var label_ of Data[label][propLabel].values) {
+						for (var label_ of data[label][propLabel].values) {
 							var edgeConfig = jQuery.extend(
-								JSON.parse(JSON.stringify( config.graphOptions.edges)),
-
-							//	propLabel in config.propertyOptions
-								//		? config.propertyOptions[propLabel]
-							//			: {},
-
+								JSON.parse(JSON.stringify(Config.graphOptions.edges)),
 								{
 									from: label,
 									to: label_,
-									label: propLabel,
+									label: propLabel_,
 									// group: propLabel,
 								}
 							);
 
 							edgeConfig.arrows.to.enabled = true;
-
-							console.log('edgeConfig', edgeConfig);
 							Edges.add(edgeConfig);
-
-							if (Nodes.get(label_) === null) {
-							
-								var nodeConfig = jQuery.extend(
-										propLabel in config.propertyOptions
-											? config.propertyOptions[propLabel]
-											: {},
-										{
-											id: label_,
-											label: label_,
-											shape: 'box',
-											font: { size: 30 },
-										}
-									);
-									console.log('label_',label_)
-									console.log('Data',Data)
-									if ( !(label_ in Data ) ) {
-										nodeConfig.color = 'red';
-									}
-							
-								Nodes.add(nodeConfig
-									
-								);
-							}
+							addNode(label_);
 						}
 
 						break;
 					// @TODO complete with other property types
 					default:
 						var valueId = uuidv4();
-						var maxPropValueLength = 40;
 
-						console.log('valueId', valueId);
 						Edges.add({
 							from: label,
 							to: valueId,
-							label: propLabel
+							label: propLabel_,
 							// color: color,
 							// group: propLabel,
 						});
 
-						var propValue = Data[label][propLabel].values.join(', ');
+						var propValue = data[label][propLabel].values.join(', ');
 
 						Nodes.add(
 							jQuery.extend(
-								propLabel in config.propertyOptions
-									? config.propertyOptions[propLabel]
+								propLabel in Config.propertyOptions
+									? Config.propertyOptions[propLabel]
 									: { color },
 								{
 									id: valueId,
-									label: propValue.length <= maxPropValueLength ? propValue : propValue.substr(0,maxPropValueLength) + ' ...',
+									label:
+										propValue.length <= maxPropValueLength
+											? propValue
+											: propValue.substr(0, maxPropValueLength) + ' ...',
 								}
 							)
 						);
 				}
 			}
 		}
+	}
+
+	function initialize(container, config) {
+		console.log('config', config);
+
+		Config = config;
+		Container = container;
+
+		$(container).width(config.width);
+		$(container).height(config.width);
+
+		if (config['show-toolbar']) {
+			var toolbar = createToolbar();
+			toolbar.$element.insertBefore(container);
+		}
+
+		var options = getDefaultOptions();
+
+		Data = config.data;
+
+		//create the network
+		Network = new vis.Network(
+			container,
+			{ nodes: Nodes, edges: Edges },
+			config.graphOptions
+		);
+
+		createNodes(Data);
 
 		var self = this;
-		this.network.on('click', function (params) {
-		return;
-			console.log('params', params);
+
+		Network.on('oncontext', function (params) {
 			var nodeId = params.nodes[0];
-			console.log('nodeId', nodeId);
-			if (nodeId !== undefined) {
-				var clickedNode = Nodes.get(nodeId);
-
-				// Show popup with node information
-				//self.network.showPopup(nodeId, '<div>' + clickedNode.label + '</div>');
-
+			if (nodeId !== undefined && nodeId in Data) {
+				params.event.preventDefault();
+				Properties = Data[nodeId];
 				openDialog(nodeId);
 				return;
 			}
+			return;
+			// openDialog(null);
+			// Canvas = params.pointer.canvas;
+		});
 
-			openDialog(null);
+		Network.on('click', function (params) {
+			if (!params.nodes.length) {
+				return;
+			}
 
-			Canvas = params.pointer.canvas;
+			if (SelectedNode !== params.nodes[0]) {
+				SelectedNode = params.nodes[0];
+				return;
+			}
+
+			// var excludedIds = [params.nodes[0]];
+			function HideNodesRec(nodeId) {
+				var children = Network.getConnectedNodes(nodeId);
+				// children = children.filter((x) => excludedIds.indexOf(x) === -1);
+
+				var updateNodes = [];
+				for (var nodeId_ of children) {
+					if (!(nodeId_ in Data)) {
+						updateNodes.push({
+							id: nodeId_,
+							hidden: !Nodes.get(nodeId_).hidden,
+						});
+					}
+				}
+				Nodes.update(updateNodes);
+			}
+
+			HideNodesRec(params.nodes[0]);
+		});
+
+		Network.on('doubleClick', function (params) {
+			if (!params.nodes.length) {
+				return;
+			}
+			var nodeId = params.nodes[0];
+
+			if (!(nodeId in Data) || Data[nodeId] === null) {
+				loadNodes(params.nodes[0]).then(function (data) {
+					createNodes(data);
+
+					Nodes.update([
+						{
+							id: nodeId,
+							opacity: 1,
+							shapeProperties: {
+								borderDashes: false,
+							},
+						},
+					]);
+				});
+			}
 		});
 	}
 
@@ -177,55 +270,7 @@ KnowledgeGraph = function () {
 
 		windowManager.addWindows([myDialog]);
 
-		windowManager.openWindow(myDialog, { nodeId });
-	}
-
-	function printNodes(pointer) {
-		return;
-		console.log('printNodes', ModelProperties);
-
-		// var pageId = Properties.pageid;
-		// console.log('pageId', pageId);
-		var nodeId = Nodes.add({
-			id: SelectedLabel,
-			label: SelectedLabel,
-			color: '#6dbfa9',
-			hidden: false,
-			x: Canvas.x,
-			y: Canvas.y,
-			physics: false,
-			title: 'sdds <ul> <li>a</ul>',
-		});
-		var properties = [];
-		for (var propLabel in Properties[SelectedLabel]) {
-			if (!ModelProperties[propLabel].getValue()) {
-				continue;
-			}
-
-			var propValue = Properties[SelectedLabel][propLabel].values;
-			// property label
-			var propValue = propValue.join(', ');
-			properties.push(propLabel);
-
-			var color = randomHSL();
-			var valueId = uuidv4();
-
-			// connection/predicate
-			Edges.add({
-				from: SelectedLabel,
-				to: valueId,
-				label: propLabel,
-				color: color,
-				group: propLabel,
-			});
-
-			// value / object
-			Nodes.add({
-				id: valueId,
-				label: propValue,
-				color: color,
-			});
-		}
+		windowManager.openWindow(myDialog, { nodeId, title: nodeId });
 	}
 
 	function MyDialog(config) {
@@ -278,7 +323,7 @@ KnowledgeGraph = function () {
 		ModelProperties = {};
 		var items = [];
 
-		for (var i in Properties[SelectedLabel]) {
+		for (var i in Properties) {
 			var toggleInput = new OO.ui.ToggleSwitchWidget({
 				value: true,
 			});
@@ -375,8 +420,8 @@ KnowledgeGraph = function () {
 			.call(this, data)
 			.next(function () {
 				if (data && data.nodeId) {
-					SelectedLabel = data.nodeId;
-					console.log('SelectedLabel', SelectedLabel);
+					SelectedNode = data.nodeId;
+					console.log('SelectedNode', SelectedNode);
 					console.log('Properties', Properties);
 
 					this.initializePropertyPanel();
@@ -400,8 +445,16 @@ KnowledgeGraph = function () {
 
 		var selfDialog = this;
 		switch (action) {
+			case 'delete':
+				if (confirm('Are you sure you want to delete this node ?')) {
+					deleteNode(SelectedNode);
+					return new OO.ui.Process(function () {
+						selfDialog.close({ action: action });
+					});
+				}
+				break;
 			case 'done':
-				printNodes();
+				createNodes(TmpData);
 				return new OO.ui.Process(function () {
 					selfDialog.close({ action: action });
 				});
@@ -410,37 +463,17 @@ KnowledgeGraph = function () {
 				return MyDialog.super.prototype.getActionProcess
 					.call(this, action)
 					.next(function () {
-						var payload = {
-							title: selfDialog.titleInputWidget.getValue(),
-							action: 'knowledgegraph-semantic-properties',
-						};
 						return new Promise((resolve, reject) => {
-							mw.loader.using('mediawiki.api', function () {
-								new mw.Api()
-									.postWithToken('csrf', payload)
-									.done(function (thisRes) {
-										console.log('thisRes', thisRes);
-										if ('data' in thisRes[payload.action]) {
-											SelectedLabel = payload.title;
-											Properties[SelectedLabel] =
-												thisRes[payload.action].data.properties;
-
-											selfDialog.initializePropertyPanel();
-											selfDialog.actions.setMode('properties');
-											resolve();
-										} else {
-											reject();
-										}
-									})
-									.fail(function (thisRes) {
-										// eslint-disable-next-line no-console
-										console.error(payload.action, thisRes);
-										reject(thisRes);
-									});
+							var title_ = selfDialog.titleInputWidget.getValue();
+							loadNodes(title_).then(function (data) {
+								Properties = data[Object.keys(data)[0]];
+								TmpData = data;
+								selfDialog.initializePropertyPanel();
+								selfDialog.actions.setMode('properties');
+								resolve();
 							});
 						});
 					});
-
 				break;
 
 			case 'back':
@@ -485,6 +518,7 @@ KnowledgeGraph = function () {
 
 			switch (toolName) {
 				case 'add-node':
+					openDialog(null);
 					break;
 				case 'nodes-by-property':
 					break;
@@ -503,12 +537,12 @@ KnowledgeGraph = function () {
 				title: 'add node',
 				onSelect: onSelect,
 			},
-			{
-				name: 'nodes-by-property',
-				icon: 'add',
-				title: 'add nodes by property',
-				onSelect: onSelect,
-			},
+			// {
+			// 	name: 'nodes-by-property',
+			// 	icon: 'add',
+			// 	title: 'add nodes by property',
+			// 	onSelect: onSelect,
+			// },
 			{
 				name: 'export-graph',
 				icon: 'add',
@@ -948,18 +982,53 @@ KnowledgeGraph = function () {
 				},
 			},
 			physics: {
-				stabilization: {
-					enabled: true,
-				},
+				enabled: true,
 				barnesHut: {
-					gravitationalConstant: -40000,
-					centralGravity: 0,
-					springLength: 0,
-					springConstant: 0.5,
-					damping: 1,
+					theta: 0.5,
+					gravitationalConstant: -2000,
+					centralGravity: 0.3,
+					springLength: 95,
+					springConstant: 0.04,
+					damping: 0.09,
 					avoidOverlap: 0,
 				},
-				maxVelocity: 5,
+				forceAtlas2Based: {
+					theta: 0.5,
+					gravitationalConstant: -50,
+					centralGravity: 0.01,
+					springConstant: 0.08,
+					springLength: 100,
+					damping: 0.4,
+					avoidOverlap: 0,
+				},
+				repulsion: {
+					centralGravity: 0.2,
+					springLength: 200,
+					springConstant: 0.05,
+					nodeDistance: 100,
+					damping: 0.09,
+				},
+				hierarchicalRepulsion: {
+					centralGravity: 0.0,
+					springLength: 100,
+					springConstant: 0.01,
+					nodeDistance: 120,
+					damping: 0.09,
+					avoidOverlap: 0,
+				},
+				maxVelocity: 50,
+				minVelocity: 0.1,
+				solver: 'barnesHut',
+				stabilization: {
+					enabled: true,
+					iterations: 1000,
+					updateInterval: 100,
+					onlyDynamicEdges: false,
+					fit: true,
+				},
+				timestep: 0.5,
+				adaptiveTimestep: true,
+				wind: { x: 0, y: 0 },
 			},
 		};
 		return options;
@@ -989,15 +1058,6 @@ KnowledgeGraph = function () {
 
 $(document).ready(async function () {
 	var semanticGraphs = JSON.parse(mw.config.get('knowledgegraphs'));
-
-	/*
-const code = `const hello = () => console.log("ハロー")
-export default { hello }`;
-
-const mod = await import(`data:text/javascript,${code}`)
- 
-mod.default.hello() ;
-*/
 
 	async function getModule(str) {
 		var module = await import(`data:text/javascript;base64,${btoa(str)}`);
@@ -1039,7 +1099,8 @@ mod.default.hello() ;
 				depth: '',
 				width: '',
 				height: '',
-				'show-toolbar': '',
+				'show-toolbar': false,
+				'show-property-type': false,
 			},
 			graphData
 		);
