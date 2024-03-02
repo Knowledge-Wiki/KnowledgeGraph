@@ -1,84 +1,218 @@
-/*@nomin*/
-/* 
-hint: ResourceLoader minifier does not support ES6 yet, therefore skip minification  with "nomin" (see https://phabricator.wikimedia.org/T255556)
-*/
+/**
+ * KnowledgeGraph
+ *
+ * @licence GPL-2.0-or-later
+ * @author thomas-topway-it for KM-A
+ * @credits https://github.com/OpenSemanticLab/mediawiki-extensions-InteractiveSemanticGraph
+ */
 
-//Root class
-class isg {
-	static version = '0.0.1';
+KnowledgeGraph = function () {
+	var ModelProperties = {};
+	var Properties = {};
+	var Canvas = {};
+	var Nodes = new vis.DataSet([]);
+	var Edges = new vis.DataSet([]);
+	var SelectedLabel = null;
+	var Data = {};
 
-	constructor() {}
+	function initialize(container, config) {
+		console.log('config', config);
 
-	static getVersion() {
-		return this.version;
-	}
-}
+		$(container).width(config.width);
+		$(container).height(config.width);
 
-// Assigning namespace.
-window.isg = isg;
+		var toolbar = createToolbar();
 
-isg.Graph = class {
-	param_nodes_set = false;
+		toolbar.$element.insertBefore(container);
 
-	nodesClicked = [];
-	contextCreatedProps = [];
-	objClickedProps = {};
-	objColors = {};
-	start = 0;
-	// rootsProcessed = [];
-	colors = [];
-
-	ModelProperties = {};
-	Properties = {};
-	Canvas = {};
-
-	printNodes(pointer) {
-		console.log('printNodes', this.ModelProperties);
-
-
-		var pageId = this.Properties.pageid;
-		console.log('pageId', pageId);
-		var nodeId = this.data.nodes.add({
-			id: pageId,
-			label: this.Properties.label,
-			color: '#6dbfa9',
-			hidden: false,
-          x:this.Canvas.x,
-           y:this.Canvas.y,
-           physics: false
-		});
-		console.log('nodeId', {
-			id: pageId,
-			label: this.Properties.label,
-			color: '#6dbfa9',
-			hidden: false,
-            x:this.Canvas.x,
-            y:this.Canvas.y
-		});
+		var options = getDefaultOptions();
 		
+		Data = config.data;
 
-		var properties = [];
-		for (var propLabel in this.Properties.properties) {
-		
-				if ( !this.ModelProperties[propLabel].getValue() ) {
-					continue;
+		//create the network
+		this.network = new vis.Network(
+			container,
+			{ nodes: Nodes, edges: Edges },
+			config.graphOptions
+		);
+
+		for (var label in Data) {
+			if (Nodes.get(label) === null) {
+				Nodes.add(
+					jQuery.extend(
+						label in config.propertyOptions
+							? config.propertyOptions[label]
+							: {},
+						{
+							id: label,
+							label: label,
+							// color: '#6dbfa9',
+							shape: 'box',
+							font: { size: 30 },
+							// title: 'sdds <ul> <li>a</ul>',
+						}
+					)
+				);
+			}
+
+			for (var propLabel in Data[label]) {
+				var color = randomHSL();
+
+				console.log(
+					'Data[label][propLabel]',
+					Data[label][propLabel]
+				);
+
+				switch (Data[label][propLabel].typeId) {
+					case '_wpg':
+						for (var label_ of Data[label][propLabel].values) {
+							var edgeConfig = jQuery.extend(
+								JSON.parse(JSON.stringify( config.graphOptions.edges)),
+
+							//	propLabel in config.propertyOptions
+								//		? config.propertyOptions[propLabel]
+							//			: {},
+
+								{
+									from: label,
+									to: label_,
+									label: propLabel,
+									// group: propLabel,
+								}
+							);
+
+							edgeConfig.arrows.to.enabled = true;
+
+							console.log('edgeConfig', edgeConfig);
+							Edges.add(edgeConfig);
+
+							if (Nodes.get(label_) === null) {
+							
+								var nodeConfig = jQuery.extend(
+										propLabel in config.propertyOptions
+											? config.propertyOptions[propLabel]
+											: {},
+										{
+											id: label_,
+											label: label_,
+											shape: 'box',
+											font: { size: 30 },
+										}
+									);
+									console.log('label_',label_)
+									console.log('Data',Data)
+									if ( !(label_ in Data ) ) {
+										nodeConfig.color = 'red';
+									}
+							
+								Nodes.add(nodeConfig
+									
+								);
+							}
+						}
+
+						break;
+					// @TODO complete with other property types
+					default:
+						var valueId = uuidv4();
+						var maxPropValueLength = 40;
+
+						console.log('valueId', valueId);
+						Edges.add({
+							from: label,
+							to: valueId,
+							label: propLabel
+							// color: color,
+							// group: propLabel,
+						});
+
+						var propValue = Data[label][propLabel].values.join(', ');
+
+						Nodes.add(
+							jQuery.extend(
+								propLabel in config.propertyOptions
+									? config.propertyOptions[propLabel]
+									: { color },
+								{
+									id: valueId,
+									label: propValue.length <= maxPropValueLength ? propValue : propValue.substr(0,maxPropValueLength) + ' ...',
+								}
+							)
+						);
 				}
-		
-			this.options.groups[propLabel] = {
-				hidden: false,
-			};
-			
-			var propValue = this.Properties.properties[propLabel];
+			}
+		}
+
+		var self = this;
+		this.network.on('click', function (params) {
+		return;
+			console.log('params', params);
+			var nodeId = params.nodes[0];
+			console.log('nodeId', nodeId);
+			if (nodeId !== undefined) {
+				var clickedNode = Nodes.get(nodeId);
+
+				// Show popup with node information
+				//self.network.showPopup(nodeId, '<div>' + clickedNode.label + '</div>');
+
+				openDialog(nodeId);
+				return;
+			}
+
+			openDialog(null);
+
+			Canvas = params.pointer.canvas;
+		});
+	}
+
+	function openDialog(nodeId) {
+		// Create and append a window manager.
+		var windowManager = new OO.ui.WindowManager();
+		$(document.body).append(windowManager.$element);
+
+		// @see https://www.mediawiki.org/wiki/OOUI/Windows/Process_Dialogs
+		var myDialog = new MyDialog({
+			size: 'medium',
+		});
+
+		windowManager.addWindows([myDialog]);
+
+		windowManager.openWindow(myDialog, { nodeId });
+	}
+
+	function printNodes(pointer) {
+		return;
+		console.log('printNodes', ModelProperties);
+
+		// var pageId = Properties.pageid;
+		// console.log('pageId', pageId);
+		var nodeId = Nodes.add({
+			id: SelectedLabel,
+			label: SelectedLabel,
+			color: '#6dbfa9',
+			hidden: false,
+			x: Canvas.x,
+			y: Canvas.y,
+			physics: false,
+			title: 'sdds <ul> <li>a</ul>',
+		});
+		var properties = [];
+		for (var propLabel in Properties[SelectedLabel]) {
+			if (!ModelProperties[propLabel].getValue()) {
+				continue;
+			}
+
+			var propValue = Properties[SelectedLabel][propLabel].values;
 			// property label
 			var propValue = propValue.join(', ');
 			properties.push(propLabel);
 
-			var color = new isg.util.Color().randomHSL();
-			var valueId = isg.util.uuidv4();
+			var color = randomHSL();
+			var valueId = uuidv4();
 
 			// connection/predicate
-			this.data.edges.add({
-				from: pageId,
+			Edges.add({
+				from: SelectedLabel,
 				to: valueId,
 				label: propLabel,
 				color: color,
@@ -86,426 +220,732 @@ isg.Graph = class {
 			});
 
 			// value / object
-			this.data.nodes.add({
+			Nodes.add({
 				id: valueId,
 				label: propValue,
 				color: color,
 			});
 		}
-
-/*
- this.network.selectNodes([nodeId]);
-       this.network.editNode();
-  */  
-  
-  return
-
-console.log('this.data',this.data)
-		// this.network.setOptions(this.options);
-		this.network.body.emitter.emit('_dataChanged');
-		//this.network.redraw();
 	}
 
-	constructor(container, config) {
-		var knowledgeGraphKMA = new KnowledgeGraphKMA();
-		
-		console.log('container',container)
-		console.log('config',config)
-		
-		
-		this.config = config;
-		this.options = this.getDefaultOptions();
-		this.options = { ...this.options, ...this.config.visnetwork };
-		
-		console.log('this.options',this.options)
-		knowledgeGraphKMA.initialize(container,this.options )
-		
-		
-		
-		return;
+	function MyDialog(config) {
+		MyDialog.super.call(this, config);
+	}
+	OO.inheritClass(MyDialog, OO.ui.ProcessDialog);
 
-		console.log('KnowledgeGraphKMA');
+	// Specify a name for .addWindows()
+	MyDialog.static.name = 'myDialog';
+	// Specify the static configurations: title and action set
+	MyDialog.static.actions = [
+		{
+			flags: ['primary', 'progressive'],
+			label: 'Continue',
+			action: 'continue',
+			modes: ['select'],
+		},
+		{
+			action: 'back',
+			label: 'Back',
+			flags: ['safe', 'back'],
+			modes: ['properties'],
+		},
+		{
+			flags: ['primary', 'progressive'],
+			label: 'Done',
+			action: 'done',
+			modes: ['properties'],
+		},
+		{
+			flags: 'safe',
+			label: 'Cancel',
+			modes: ['select', 'properties', 'edit'],
+		},
+		{
+			flags: ['primary', 'progressive'],
+			label: 'Done',
+			action: 'done',
+			modes: ['edit'],
+		},
+		{
+			action: 'delete',
+			label: 'Delete',
+			flags: 'destructive',
+			modes: ['edit'],
+		},
+	];
 
-		this.container = container;
-		this.config = config;
-		this.data = new isg.Data(this.config);
-		this.randomColor = new isg.util.Color();
+	MyDialog.prototype.displayPropertiesSwitch = function (properties) {
+		ModelProperties = {};
+		var items = [];
 
-		//this.config.uri_color_map = {"gpo": "red"};
-		for (var i = this.colors.length; i < this.config.properties.length; i++) {
-			this.colors.push(this.randomColor.randomHSL());
-		}
-
-		//Allow custom visnetwork options
-		this.options = this.getDefaultOptions();
-		this.options = { ...this.options, ...this.config.visnetwork };
-
-		for (var pageid in config.nodes) {
-			console.log('config.nodes[pageid]', config.nodes[pageid]);
-			this.data.nodes.add({
-				id: pageid,
-				label: config.nodes[pageid],
-				color: '#6dbfa9',
+		for (var i in Properties[SelectedLabel]) {
+			var toggleInput = new OO.ui.ToggleSwitchWidget({
+				value: true,
 			});
+
+			ModelProperties[i] = toggleInput;
+
+			var field = new OO.ui.FieldLayout(toggleInput, {
+				label: i,
+				help: '',
+				helpInline: true,
+				align: 'top',
+			});
+			items.push(field);
 		}
 
-		console.log('config.propertiesById', config.propertiesById);
+		this.fieldset.addItems(items);
+	};
 
-		var properties = [];
-		for (var pageid in config.propertiesById) {
-			for (var propLabel in config.propertiesById[pageid]) {
-				var propValue = config.propertiesById[pageid][propLabel];
-				// property label
-				var propValue = propValue.join(', ');
-				properties.push(propLabel);
+	// Customize the initialize() function to add content and layouts:
+	MyDialog.prototype.initialize = function () {
+		MyDialog.super.prototype.initialize.call(this);
 
-				var color = new isg.util.Color().randomHSL();
-				var valueId = isg.util.uuidv4();
+		var panelA = new OO.ui.PanelLayout({
+			padded: true,
+			expanded: false,
+		});
 
-				// connection/predicate
-				this.data.edges.add({
-					from: pageid,
-					to: valueId,
-					label: propLabel,
-					color: color,
-					group: propLabel,
+		var content = new OO.ui.FieldsetLayout();
+
+		this.titleInputWidget = new mw.widgets.TitleInputWidget({
+			autocomplete: true,
+			//	suggestions: true,
+			//	addQueryInput: true,
+			// $overlay: true,
+			//	allowSuggestionsWhenEmpty: true,
+		});
+		var field = new OO.ui.FieldLayout(this.titleInputWidget, {
+			label: 'Select an article with semantic properties',
+			align: 'top',
+		});
+
+		content.addItems([field]);
+		panelA.$element.append(content.$element);
+
+		var panelB = new OO.ui.PanelLayout({
+			padded: true,
+			expanded: false,
+		});
+
+		this.fieldset = new OO.ui.FieldsetLayout({
+			label:
+				'toggle the properties that you would like to display on the network',
+		});
+		panelB.$element.append(this.fieldset.$element);
+
+		this.stackLayout = new OO.ui.StackLayout({
+			items: [panelA, panelB],
+			continuous: false, // !hasMultiplePanels(),
+			expanded: true,
+			padded: false,
+			// The following classes are used here:
+			// * PanelPropertiesStack
+			// * PanelPropertiesStack-empty
+			// classes: classes
+		});
+
+		this.$body.append(this.stackLayout.$element);
+
+		// this.urlInput.connect(this, { change: "onUrlInputChange" });
+	};
+
+	// Specify any additional functionality required by the window (disable opening an empty URL, in this case)
+	// MyDialog.prototype.onUrlInputChange = function (value) {
+	// 	this.actions.setAbilities({
+	// 		open: !!value.length,
+	// 	});
+	// };
+
+	// Specify the dialog height (or don't to use the automatically generated height).
+	MyDialog.prototype.getBodyHeight = function () {
+		// Note that "expanded: false" must be set in the panel's configuration for this to work.
+		// When working with a stack layout, you can use:
+		//   return this.panels.getCurrentItem().$element.outerHeight( true );
+		//return this.stackLayout.getCurrentItem().$element.outerHeight(true);
+
+		return 200;
+	};
+
+	// Use getSetupProcess() to set up the window with data passed to it at the time
+	// of opening (e.g., url: 'http://www.mediawiki.org', in this example).
+	MyDialog.prototype.getSetupProcess = function (data) {
+		data = data || {};
+		return MyDialog.super.prototype.getSetupProcess
+			.call(this, data)
+			.next(function () {
+				if (data && data.nodeId) {
+					SelectedLabel = data.nodeId;
+					console.log('SelectedLabel', SelectedLabel);
+					console.log('Properties', Properties);
+
+					this.initializePropertyPanel();
+					this.actions.setMode('edit');
+				} else {
+					this.actions.setMode('select');
+				}
+			}, this);
+	};
+
+	MyDialog.prototype.initializePropertyPanel = function () {
+		this.displayPropertiesSwitch();
+		var panel = this.stackLayout.getItems()[1];
+		this.stackLayout.setItem(panel);
+	};
+
+	// Specify processes to handle the actions.
+	MyDialog.prototype.getActionProcess = function (action) {
+		console.log('action', action);
+		console.log('titleInputWidget', this.titleInputWidget.getValue());
+
+		var selfDialog = this;
+		switch (action) {
+			case 'done':
+				printNodes();
+				return new OO.ui.Process(function () {
+					selfDialog.close({ action: action });
 				});
+				break;
+			case 'continue':
+				return MyDialog.super.prototype.getActionProcess
+					.call(this, action)
+					.next(function () {
+						var payload = {
+							title: selfDialog.titleInputWidget.getValue(),
+							action: 'knowledgegraph-semantic-properties',
+						};
+						return new Promise((resolve, reject) => {
+							mw.loader.using('mediawiki.api', function () {
+								new mw.Api()
+									.postWithToken('csrf', payload)
+									.done(function (thisRes) {
+										console.log('thisRes', thisRes);
+										if ('data' in thisRes[payload.action]) {
+											SelectedLabel = payload.title;
+											Properties[SelectedLabel] =
+												thisRes[payload.action].data.properties;
 
-				// value / object
-				this.data.nodes.add({
-					id: valueId,
-					label: propValue,
-					color: color,
-				});
-			}
-		}
-
-		this.config.normalizedProperties = properties;
-
-		//Creates groups in the options and sets them all to hidden:false.
-		for (var label in properties) {
-			this.options.groups[label] = {
-				hidden: false,
-			};
-		}
-
-		//create the network
-		this.network = new vis.Network(
-			this.container,
-			{ nodes: this.data.nodes, edges: this.data.edges },
-			this.options
-		);
-
-		var self = this;
-		this.network.on('click', function (params) {
-		
-      
-			console.log('params', params);
-		var nodeId = params.nodes[0];
-			console.log('nodeId', nodeId);
-      if (nodeId !== undefined) {
-        var clickedNode = self.data.nodes.get(nodeId);
-        alert('Clicked on Node ' + nodeId + ' with label: ' + clickedNode.label);
-        
-        
-        
-        
-        
-        return
-      }
-      
-      
-      
-			
-			self.Canvas = params.pointer.canvas
-
-			// Create and append a window manager.
-			var windowManager = new OO.ui.WindowManager();
-			$(document.body).append(windowManager.$element);
-
-			// Create a new process dialog window.
-			var myDialog = new MyDialog({
-				size: 'medium',
-			});
-
-			// Add the window to window manager using the addWindows() method.
-			windowManager.addWindows([myDialog]);
-
-			// Open the window!
-			windowManager.openWindow(myDialog, { url: 'https://www.mediawiki.org' });
-
-
-		});
-
-		this.ui = new isg.UI(this.container, {
-			onLegendClick: (legendEntry) => this.legendFunctionality(legendEntry),
-		});
-		this.initUi();
-		this.createEventHandler();
-
-		//	if (this.param_nodes_set === false) {
-		//		this.fetchData(this.config.root, this.config.properties); //auto expand
-		//	}
-
-		//	this.nodes_opened = [this.config.root];
-	}
-
-	constructor_(container, config) {
-		this.container = container;
-		this.config = config;
-		this.config.show_menu = this.config.show_menu || true;
-		this.ui = new isg.UI(this.container, {
-			onLegendClick: (legendEntry) => this.legendFunctionality(legendEntry),
-			legacy_mode: config.legacy_mode,
-		});
-		this.data = new isg.Data(this.config);
-		// if (this.config.edit && this.config.legacy_mode) mwjson.parser.init(); //start loading parser
-
-		this.first_call = true;
-
-		//init graph from permalink
-		var searchParams = new URLSearchParams(window.location.search);
-		if (
-			(searchParams.has('nodes') && !(searchParams.get('nodes') === '')) ||
-			this.config.data
-		) {
-			this.first_call = false; //prevent auto-expand
-			if (this.config.data) {
-				this.config.data = this.config.data.replaceAll('&amp;', '&');
-				window.history.replaceState(null, document.title, this.config.data);
-			}
-			//searchParams = new URLSearchParams(window.location.search);
-			this.read_link();
-		}
-
-		this.config.properties = [...new Set(this.config.properties)]; //remove duplicates
-		this.config.properties = this.config.properties.filter((el) => {
-			return !this.config.ignore_properties.includes(el);
-		}); //remove ignored properties
-		this.config.inverseProperties = this.config.properties.filter((p) =>
-			isg.util.isLabelReversed(p)
-		);
-		this.config.noninverseProperties = this.config.properties.filter(
-			(p) => !isg.util.isLabelReversed(p)
-		);
-		this.config.normalizedProperties = [];
-		this.config.noninverseProperties.forEach((p) =>
-			this.config.normalizedProperties.push(p)
-		);
-		this.config.inverseProperties.forEach((p) =>
-			this.config.normalizedProperties.push(isg.util.reverseLabel(p))
-		); //normalize propertes
-		this.config.normalizedProperties = [
-			...new Set(this.config.normalizedProperties),
-		]; //remove duplicates
-		this.randomColor = new isg.util.Color();
-
-		//this.config.uri_color_map = {"gpo": "red"};
-		for (var i = this.colors.length; i < this.config.properties.length; i++) {
-			this.colors.push(this.randomColor.randomHSL());
-		}
-
-		//Allow custom visnetwork options
-		this.options = this.getDefaultOptions();
-		this.options = { ...this.options, ...this.config.visnetwork };
-
-		if (this.param_nodes_set === false) {
-			this.data.nodes.add({
-				id: this.config.root,
-				label: this.config.root, //todo: query display title
-				color: '#6dbfa9',
-				isLiteral: false,
-			});
-		}
-
-		//create the network
-		this.network = new vis.Network(
-			this.container,
-			{ nodes: this.data.nodes, edges: this.data.edges },
-			this.options
-		);
-		this.initUi();
-		this.createEventHandler();
-
-		if (this.param_nodes_set === false) {
-			this.fetchData(this.config.root, this.config.properties); //auto expand
-		}
-
-		this.nodes_opened = [this.config.root];
-		this.loop_counter = 0;
-	}
-
-	//Draws graph from url
-	read_link() {
-		this.param_nodes_set = true;
-		var searchParams = new URLSearchParams(window.location.search);
-		var d_nodes = mwjson.util.objectFromCompressedBase64(
-			searchParams.get('nodes')
-		);
-		var d_edges = mwjson.util.objectFromCompressedBase64(
-			searchParams.get('edges')
-		);
-
-		this.config.root = d_nodes[0].id;
-		var prop_array = [];
-		for (var i = 0; i < d_nodes.length; i++) {
-			this.data.nodes.add(d_nodes[i]);
-		}
-
-		for (var i = 0; i < d_edges.length; i++) {
-			this.data.edges.add(d_edges[i]);
-			if (prop_array.includes(d_edges[i].group)) {
-				continue;
-			} else {
-				prop_array.push(d_edges[i].group);
-				this.colors.push(d_edges[i].color);
-			}
-		}
-
-		this.config.properties = prop_array.concat(this.config.properties);
-		//searchParams = new URLSearchParams(window.location.search);
-	}
-
-	//Creates a static link to restore the graph state
-	create_link(data, updateWindowLocation = false) {
-		var searchParams = new URLSearchParams(window.location.search);
-		updateWindowLocation =
-			updateWindowLocation ||
-			(searchParams.has('permalink') &&
-				searchParams.get('permalink') === 'true') ||
-			this.config.sync_permalink ||
-			searchParams.has('nodes');
-
-		if (updateWindowLocation) {
-			if (!searchParams.has('nodes')) {
-				window.history.replaceState(null, document.title, '?nodes=&edges');
-			}
-
-			searchParams = new URLSearchParams(window.location.search);
-			var e_nodes = mwjson.util.objectToCompressedBase64(data.nodes.get());
-			var e_edges = mwjson.util.objectToCompressedBase64(data.edges.get());
-
-			searchParams.set('nodes', '' + e_nodes);
-			searchParams.set('edges', '' + e_edges);
-
-			window.history.pushState({}, '', '?' + searchParams);
-		}
-	}
-
-	initUi() {
-		this.ui.init(); //visnetwork will remove all child elements, so we call this after creating the visnetwork instance
-
-		if (this.config.hint) this.ui.createInfoSection();
-
-		//create legend
-		this.legendColors = this.ui.createLegend(
-			this.config.normalizedProperties,
-			this.colors
-		);
-
-		//save button
-		//if (this.config.edit) {
-		//	this.saveButton = this.ui.createSaveButton();
-		//	this.saveButton.addEventListener("click", () =>
-		//		this.data.saveGraphChanges()
-		//	);
-		//	if (!this.config.show_menu) this.saveButton.style.display = "none";
-		//}
-
-		//permalink button
-		var searchParams = new URLSearchParams(window.location.search);
-		var requested =
-			searchParams.has('permalink') && searchParams.get('permalink') === 'true';
-		if (requested || this.config.permalink || searchParams.has('nodes')) {
-			this.permalinkButton = this.ui.createPermalinkButton();
-			this.permalinkButton.addEventListener('click', (event) => {
-				this.create_link(this.data, true);
-				isg.util.copyToClipboad(window.location);
-			});
-		}
-
-		//reset view button
-		this.resetViewButton = this.ui.createResetViewButton();
-		this.resetViewButton.addEventListener('click', () => {
-			this.network.redraw();
-			this.network.fit();
-		});
-		if (!this.config.show_menu) this.resetViewButton.style.display = 'none';
-	}
-
-	getDefaultOptions() {
-		var options = {
-			width: '100%',
-			height: '100%',
-			interaction: {
-				hover: true,
-			},
-			manipulation: {
-				editNode: (data, callback) => {
-				
-				console.log('editNode')
-					/*  
-                    
-					console.log('data',data)
-					
-					$("#node-popUp").css({
-					top: data.x + "px",
-					left: data.y + "px",
-					display: "block",
-				});
-				
-				$("<ul class='custom-menu)
-							.finish()
-							.toggle(100)
-							.css({
-								top: params.event.pageY + "px",
-								left: params.event.pageX + "px",
-								display: "block",
+											selfDialog.initializePropertyPanel();
+											selfDialog.actions.setMode('properties');
+											resolve();
+										} else {
+											reject();
+										}
+									})
+									.fail(function (thisRes) {
+										// eslint-disable-next-line no-console
+										console.error(payload.action, thisRes);
+										reject(thisRes);
+									});
 							});
-							
-			*/
-				},
+						});
+					});
 
-				enabled: this.config.edit,
-				editEdge: false,
-				deleteNode: (data, callback) => {
-					this.deleteSelectedNode(data, callback);
-				},
-				deleteEdge: (data, callback) => {
-					this.deleteSelectedEdge(data, callback);
-				},
-				addNode: (data, callback) => {
-				console.log('addNode')
-					// filling in the popup DOM elements
-					document.getElementById('node-operation').innerText = 'Add Node';
-					this.ui.dragElement(document.getElementById('node-popUp'));
-					this.editNode(data, this.clearNodePopUp, callback);
-				},
-				addEdge: (data, callback) => {
-				console.log('data')
-					if (data.from == data.to) {
-						var r = confirm('Do you want to connect the node to itself?');
-						if (r != true) {
-							callback(null);
-							return;
-						}
-					}
-					document.getElementById('edge-operation').innerText = 'Add Edge';
-					this.ui.dragElement(document.getElementById('edge-popUp'));
-					this.editEdgeWithoutDrag(data, callback);
-				},
+				break;
+
+			case 'back':
+				this.stackLayout.setItem(this.stackLayout.getItems()[0]);
+				this.actions.setMode('select');
+				break;
+		}
+
+		return MyDialog.super.prototype.getActionProcess.call(this, action);
+
+		if (action === 'open') {
+			// Create a new process to handle the action
+			return new OO.ui.Process(function () {
+				window.open(this.urlInput.getValue());
+			}, this);
+		}
+		// Fallback to parent handler
+		return MyDialog.super.prototype.getActionProcess.call(this, action);
+	};
+
+	// Use the getTeardownProcess() method to perform actions whenever the dialog is closed.
+	// This method provides access to data passed into the window's close() method
+	// or the window manager's closeWindow() method.
+	MyDialog.prototype.getTeardownProcess = function (data) {
+		return MyDialog.super.prototype.getTeardownProcess
+			.call(this, data)
+			.first(function () {
+				// Perform any cleanup as needed
+			}, this);
+	};
+
+	function createToolbar() {
+		var toolFactory = new OO.ui.ToolFactory();
+		var toolGroupFactory = new OO.ui.ToolGroupFactory();
+
+		var toolbar = new OO.ui.Toolbar(toolFactory, toolGroupFactory, {
+			actions: true,
+		});
+
+		var onSelect = function () {
+			var toolName = this.getName();
+
+			switch (toolName) {
+				case 'add-node':
+					break;
+				case 'nodes-by-property':
+					break;
+
+				case 'export-graph':
+					break;
+			}
+
+			this.setActive(false);
+		};
+
+		var toolGroup = [
+			{
+				name: 'add-node',
+				icon: 'add',
+				title: 'add node',
+				onSelect: onSelect,
+			},
+			{
+				name: 'nodes-by-property',
+				icon: 'add',
+				title: 'add nodes by property',
+				onSelect: onSelect,
+			},
+			{
+				name: 'export-graph',
+				icon: 'add',
+				title: 'export graph',
+				onSelect: onSelect,
+			},
+		];
+		createToolGroup(toolFactory, 'group', toolGroup);
+
+		toolbar.setup([
+			{
+				name: 'my-group',
+				// type: "bar",
+				// label: "Create property",
+				include: [{ group: 'group' }],
+			},
+		]);
+
+		return toolbar;
+	}
+
+	function getNestedProp(path, obj) {
+		return path.reduce((xs, x) => (xs && xs[x] ? xs[x] : null), obj);
+	}
+
+	function createTool(obj, config) {
+		var Tool = function () {
+			// Tool.super.apply( this, arguments );
+			Tool.super.call(this, arguments[0], config);
+
+			OO.ui.mixin.PendingElement.call(this, {});
+
+			if (getNestedProp(['data', 'disabled'], config)) {
+				// this.setPendingElement(this.$element)
+				// this.pushPending();
+				this.setDisabled(true);
+			}
+
+			if (getNestedProp(['data', 'pending'], config)) {
+				// this.setPendingElement(this.$element)
+				this.pushPending();
+			}
+
+			// @see https://gerrit.wikimedia.org/r/plugins/gitiles/oojs/ui/+/c2805c7e9e83e2f3a857451d46c80231d1658a0f/demos/pages/toolbars.js
+			this.toggled = false;
+			if (config.init) {
+				config.init.call(this);
+			}
+		};
+
+		OO.inheritClass(Tool, OO.ui.Tool);
+		OO.mixinClass(Tool, OO.ui.mixin.PendingElement);
+
+		Tool.prototype.onSelect = function () {
+			if (obj.onSelect) {
+				obj.onSelect.call(this);
+			} else {
+				this.toggled = !this.toggled;
+				this.setActive(this.toggled);
+			}
+			// Tool.emit( 'updateState' );
+		};
+
+		Tool.prototype.onUpdateState = function () {
+			this.popPending();
+			this.setDisabled(false);
+		};
+
+		for (var i in obj) {
+			Tool.static[i] = obj[i];
+		}
+
+		Tool.static.displayBothIconAndLabel = true;
+
+		return Tool;
+	}
+
+	function createToolGroup(toolFactory, groupName, tools) {
+		tools.forEach(function (tool) {
+			var obj = jQuery.extend({}, tool);
+			obj.group = groupName;
+			var config = tool.config ? tool.config : {};
+			delete obj.config;
+			toolFactory.register(createTool(obj, config));
+		});
+	}
+
+	function getProperties(pageids) {
+		console.log('pageids', pageids);
+
+		return new Promise((resolve, reject) => {
+			var payload = {
+				action: 'KnowledgeGraph-semantic-properties',
+				pageids: pageids.join(','),
+			};
+
+			mw.loader.using('mediawiki.api', function () {
+				new mw.Api()
+					.postWithToken('csrf', payload)
+					.done(function (res) {
+						console.log('res', res);
+					})
+					.fail(function (res) {
+						console.log('error' + res);
+					});
+			});
+		}).catch((err) => {
+			console.log(err);
+		});
+	}
+
+	function getDefaultOptions() {
+		var options = {
+			autoResize: true,
+			height: '100%',
+			width: '100%',
+			locale: 'en',
+			// locales: locales,
+			clickToUse: false,
+			configure: {
+				enabled: true,
+				filter: 'nodes,edges',
+				// container: undefined,
+				showButton: true,
 			},
 			edges: {
 				arrows: {
 					to: {
-						enabled: true,
+						enabled: false,
+						// imageHeight: undefined,
+						// imageWidth: undefined,
+						scaleFactor: 1,
+						// src: undefined,
+						type: 'arrow',
 					},
-					//from:{enabled: true}
+					middle: {
+						enabled: false,
+						imageHeight: 32,
+						imageWidth: 32,
+						scaleFactor: 1,
+						src: 'https://visjs.org/images/visjs_logo.png',
+						type: 'image',
+					},
+					from: {
+						enabled: false,
+						// imageHeight: undefined,
+						// imageWidth: undefined,
+						scaleFactor: 1,
+						// src: undefined,
+						type: 'arrow',
+					},
 				},
-				font: { size: this.config.edge_labels ? 14 : 0 }, //optional hide labels by set font size to zero
+				endPointOffset: {
+					from: 0,
+					to: 0,
+				},
+				arrowStrikethrough: true,
+				chosen: true,
+				color: {
+					color: '#848484',
+					highlight: '#848484',
+					hover: '#848484',
+					inherit: 'from',
+					opacity: 1.0,
+				},
+				dashes: false,
+				font: {
+					color: '#343434',
+					size: 14, // px
+					face: 'arial',
+					background: 'none',
+					strokeWidth: 2, // px
+					strokeColor: '#ffffff',
+					align: 'horizontal',
+					multi: false,
+					vadjust: 0,
+					bold: {
+						color: '#343434',
+						size: 14, // px
+						face: 'arial',
+						vadjust: 0,
+						mod: 'bold',
+					},
+					ital: {
+						color: '#343434',
+						size: 14, // px
+						face: 'arial',
+						vadjust: 0,
+						mod: 'italic',
+					},
+					boldital: {
+						color: '#343434',
+						size: 14, // px
+						face: 'arial',
+						vadjust: 0,
+						mod: 'bold italic',
+					},
+					mono: {
+						color: '#343434',
+						size: 15, // px
+						face: 'courier new',
+						vadjust: 2,
+						mod: '',
+					},
+				},
+				hidden: false,
+				hoverWidth: 1.5,
+				label: undefined,
+				labelHighlightBold: true,
+				length: undefined,
+				physics: true,
+				scaling: {
+					min: 1,
+					max: 15,
+					label: {
+						enabled: true,
+						min: 14,
+						max: 30,
+						maxVisible: 30,
+						drawThreshold: 5,
+					},
+					customScalingFunction: function (min, max, total, value) {
+						if (max === min) {
+							return 0.5;
+						} else {
+							var scale = 1 / (max - min);
+							return Math.max(0, (value - min) * scale);
+						}
+					},
+				},
+				selectionWidth: 1,
+				selfReferenceSize: 20,
+				selfReference: {
+					size: 20,
+					angle: Math.PI / 4,
+					renderBehindTheNode: true,
+				},
+				shadow: {
+					enabled: false,
+					color: 'rgba(0,0,0,0.5)',
+					size: 10,
+					x: 5,
+					y: 5,
+				},
+				smooth: {
+					enabled: true,
+					type: 'dynamic',
+					roundness: 0.5,
+				},
+				title: undefined,
+				value: undefined,
+				width: 1,
+				widthConstraint: false,
+			},
+
+			nodes: {
+				borderWidth: 1,
+				borderWidthSelected: 2,
+				brokenImage: undefined,
+				chosen: true,
+				color: {
+					border: '#2B7CE9',
+					background: '#97C2FC',
+					highlight: {
+						border: '#2B7CE9',
+						background: '#D2E5FF',
+					},
+					hover: {
+						border: '#2B7CE9',
+						background: '#D2E5FF',
+					},
+				},
+				opacity: 1,
+				fixed: {
+					x: false,
+					y: false,
+				},
+				font: {
+					color: '#343434',
+					size: 14, // px
+					face: 'arial',
+					background: 'none',
+					strokeWidth: 0, // px
+					strokeColor: '#ffffff',
+					align: 'center',
+					multi: false,
+					vadjust: 0,
+					bold: {
+						color: '#343434',
+						size: 14, // px
+						face: 'arial',
+						vadjust: 0,
+						mod: 'bold',
+					},
+					ital: {
+						color: '#343434',
+						size: 14, // px
+						face: 'arial',
+						vadjust: 0,
+						mod: 'italic',
+					},
+					boldital: {
+						color: '#343434',
+						size: 14, // px
+						face: 'arial',
+						vadjust: 0,
+						mod: 'bold italic',
+					},
+					mono: {
+						color: '#343434',
+						size: 15, // px
+						face: 'courier new',
+						vadjust: 2,
+						mod: '',
+					},
+				},
+				group: undefined,
+				heightConstraint: false,
+				hidden: false,
+				icon: {
+					face: 'FontAwesome',
+					// code: undefined,
+					// weight: undefined,
+					size: 50, //50,
+					color: '#2B7CE9',
+				},
+				// image: undefined,
+				imagePadding: {
+					left: 0,
+					top: 0,
+					bottom: 0,
+					right: 0,
+				},
+				label: undefined,
+				labelHighlightBold: true,
+				level: undefined,
+				mass: 1,
+				physics: true,
+				scaling: {
+					min: 10,
+					max: 30,
+					label: {
+						enabled: false,
+						min: 14,
+						max: 30,
+						maxVisible: 30,
+						drawThreshold: 5,
+					},
+					customScalingFunction: function (min, max, total, value) {
+						if (max === min) {
+							return 0.5;
+						} else {
+							var scale = 1 / (max - min);
+							return Math.max(0, (value - min) * scale);
+						}
+					},
+				},
+				shadow: {
+					enabled: false,
+					color: 'rgba(0,0,0,0.5)',
+					size: 10,
+					x: 5,
+					y: 5,
+				},
+				shape: 'ellipse',
+				shapeProperties: {
+					borderDashes: false, // only for borders
+					borderRadius: 6, // only for box shape
+					interpolation: false, // only for image and circularImage shapes
+					useImageSize: false, // only for image and circularImage shapes
+					useBorderWithImage: false, // only for image shape
+					coordinateOrigin: 'center', // only for image and circularImage shapes
+				},
+				size: 25,
+				title: undefined,
+				value: undefined,
+				widthConstraint: false,
+				// x: undefined,
+				// y: undefined,
 			},
 			groups: {
-				useDefaultGroups: false,
+				useDefaultGroups: true,
+				myGroupId: {
+					/*node options*/
+				},
+			},
+			layout: {
+				randomSeed: undefined,
+				improvedLayout: true,
+				clusterThreshold: 150,
+				hierarchical: {
+					enabled: false,
+					levelSeparation: 150,
+					nodeSpacing: 100,
+					treeSpacing: 200,
+					blockShifting: true,
+					edgeMinimization: true,
+					parentCentralization: true,
+					direction: 'UD', // UD, DU, LR, RL
+					sortMethod: 'hubsize', // hubsize, directed
+					shakeTowards: 'leaves', // roots, leaves
+				},
+			},
+			interaction: {
+				dragNodes: true,
+				dragView: true,
+				hideEdgesOnDrag: false,
+				hideEdgesOnZoom: false,
+				hideNodesOnDrag: false,
+				hover: false,
+				hoverConnectedEdges: true,
+				keyboard: {
+					enabled: false,
+					speed: { x: 10, y: 10, zoom: 0.02 },
+					bindToWindow: true,
+					autoFocus: true,
+				},
+				multiselect: false,
+				navigationButtons: false,
+				selectable: true,
+				selectConnectedEdges: true,
+				tooltipDelay: 300,
+				zoomSpeed: 1,
+				zoomView: true,
+			},
+			manipulation: {
+				enabled: false,
+				initiallyActive: false,
+				addNode: true,
+				addEdge: true,
+				// editNode: undefined,
+				editEdge: true,
+				deleteNode: true,
+				deleteEdge: true,
+				controlNodeStyle: {
+					// all node options are valid.
+				},
 			},
 			physics: {
 				stabilization: {
@@ -525,610 +965,93 @@ console.log('this.data',this.data)
 		return options;
 	}
 
-	fetchData(root, properties, nodeID) {
-		console.log('root', root);
-		this.KnowledgeGraphKMA.getProperties().then(function (result) {
-			console.log('result', result);
-
-			// if (this.rootsProcessed.indexOf(root) !== -1) {
-			// 	return;
-			// }
-			// this.rootsProcessed.push(root);
-			if (this.data.nodes.get(root).isLiteral) return; //don't query on literals
-			if (!properties) return;
-			var promise = this.data.fetchData(
-				root,
-				properties,
-				nodeID,
-				this.legendColors
-			);
-			promise.then((result) => {
-				this.network.setOptions(this.options);
-				this.network.body.emitter.emit('_dataChanged');
-				this.network.redraw();
-				this.create_link(this.data);
-				if (this.first_call && this.config.depth) {
-					var first_nodes = this.data.nodes.getIds();
-					// this may prevent recursive processing
-					// first_nodes = first_nodes.filter(
-					// 	(x) => this.rootsProcessed.indexOf(x) === -1
-					// );
-					first_nodes = first_nodes.slice(1);
-					this.getStartIds(first_nodes);
-					this.first_call = false;
-				}
-			});
-		});
-	}
-
-	async getStartIds(node) {
-		var start_nodes = node; //network.getConnectedNodes(node);
-		//nodes_opened.push(start_nodes);
-		for (var i = 0; i < start_nodes.length; i++) {
-			if (this.nodes_opened.includes(start_nodes[i])) {
-				/*console.log(start_nodes[i]);*/ continue;
-			}
-			this.nodes_opened.push(start_nodes[i]);
-			/*await isFetched(start_nodes[i]).then(function(response){
-                console.log(response);
-            });*/
-			this.fetchData(start_nodes[i], this.config.properties, start_nodes[i]);
-		}
-		setTimeout(() => {
-			if (this.loop_counter == this.config.depth - 1) return;
-			this.loop_counter++;
-			var new_nodes_loop = this.data.nodes.getIds();
-			//console.log(new_nodes_loop);
-			this.getStartIds(new_nodes_loop);
-		}, 300);
-	}
-
-	createEventHandler() {
-		//Ctrl and click on two nodes, puts out all possible paths between the two nodes under the tip
-		this.network.on('click', (params) => {
-			mw.hook('isg.node.clicked').fire(this.data.nodes.get(params.nodes[0])); //fire event
-			if (params.nodes[0] && params.event.srcEvent.ctrlKey) {
-				if (this.nodesClicked.length < 2) {
-					this.nodesClicked.push(params.nodes[0]);
-				}
-				if (
-					this.nodesClicked.length == 2 &&
-					this.nodesClicked[0] != this.nodesClicked[1]
-				) {
-					var pathId = 0;
-					var foundPaths = this.findAllPaths(
-						this.nodesClicked[0],
-						this.nodesClicked[1]
-					);
-					//.querySelector('[id^="poll-"]').id;
-					if (document.querySelectorAll('[id^="fullPath"]')) {
-						for (
-							var i = 0;
-							i < document.querySelectorAll('[id^="fullPath"]').length;
-							i++
-						) {
-							document.querySelectorAll('[id^="fullPath"]')[i].remove();
-						}
-					}
-					var element = '<div id="fullPath' + pathId + '"></div>';
-					this.container.children[0].insertAdjacentHTML('afterend', element);
-					var allStringsArray = this.getAllStringsForAllPaths(foundPaths);
-					var stringDiv = this.container.querySelector('#fullPath' + pathId);
-					if (foundPaths.length == 1) {
-						stringDiv.innerHTML = '<strong>Gefundener Pfad:</strong><br>';
-					} else {
-						stringDiv.innerHTML = '<strong>Gefundene Pfade:</strong><br>';
-					}
-					for (var s = 0; s < foundPaths.length; s++) {
-						if (foundPaths.length == 1) {
-							var pathNumb = '';
-						} else {
-							var pathNumb = '<strong>' + (s + 1) + '. Pfad:</strong> <br>';
-						}
-						stringDiv.innerHTML += pathNumb + '<strong>Knoten: </strong>';
-						for (var t = 0; t < foundPaths[s].length; t++) {
-							var currentFoundPath = foundPaths[s][t];
-							if (t == foundPaths[s].length - 1) {
-								stringDiv.innerHTML =
-									stringDiv.innerHTML + currentFoundPath + ' ';
-							} else {
-								stringDiv.innerHTML =
-									stringDiv.innerHTML + currentFoundPath + ' - ';
-							}
-						}
-						stringDiv.innerHTML += '<br>';
-						stringDiv.innerHTML += '<strong>Kanten:</strong><br>';
-						for (var t = 0; t < allStringsArray[s].length; t++) {
-							var currentString = allStringsArray[s][t];
-							var currentFoundPath = foundPaths[s][t];
-							var stringDiv = this.container.querySelector(
-								'#fullPath' + pathId
-							);
-							stringDiv.innerHTML =
-								stringDiv.innerHTML + '&#9679; ' + currentString + '<br>';
-						}
-						stringDiv.innerHTML += '<br>';
-					}
-					this.nodesClicked = [];
-				}
-				if (
-					this.nodesClicked[0] === this.nodesClicked[1] ||
-					this.nodesClicked.length > 2
-				) {
-					this.nodesClicked = [];
-				}
-			}
-			pathId++;
-		});
-		$(document).keyup((event) => {
-			if (!event.ctrlKey) {
-				this.nodesClicked = [];
-			}
-		});
-
-		this.network.on('doubleClick', (params) => {
-			if (params.nodes[0]) {
-				//Checks if all node children are created from context menu or manually, if so it creates nodes for before defined properties else it deletes all children
-				var conManNodes = this.network.getConnectedNodes(params.nodes[0], 'to');
-				var onlyConManNodes = true;
-				for (var i = 0; i < conManNodes.length; i++) {
-					if (
-						!(
-							this.data.nodes.get(conManNodes[i]).oncontext ||
-							this.data.nodes.get(conManNodes[i]).manually
-						)
-					) {
-						onlyConManNodes = false;
-					}
-				}
-				//Node is expanded -> delete it and all nodes related to its expansion
-				if (
-					this.network.getConnectedNodes(params.nodes[0]).length > 1 &&
-					onlyConManNodes == false
-				) {
-					this.deleteNodesChildren(params.nodes[0]);
-					for (var i = 0; i < this.contextCreatedProps.length; i++) {
-						var noNodesInNetwork = true;
-						for (var j = 0; j < this.data.nodes.getIds().length; j++) {
-							if (
-								this.contextCreatedProps[i] ==
-								this.data.nodes.get(this.data.nodes.getIds()[j]).group
-							) {
-								noNodesInNetwork = false;
-							}
-						}
-						if (noNodesInNetwork === true) {
-							this.container
-								.querySelector('#' + this.contextCreatedProps[i])
-								.remove();
-							this.contextCreatedProps.splice(
-								this.contextCreatedProps.indexOf(this.contextCreatedProps[i]),
-								1
-							);
-							i--;
-						}
-					}
-					delete this.objClickedProps['' + params.nodes[0]];
-					this.create_link(this.data);
-					//nodesArray.splice(nodesArray.indexOf(params.nodes[0]), 1);
-				} else {
-					//Node is unexpanded -> expand it
-					var nodeById = this.data.nodes.get(params.nodes[0]);
-					this.fetchData(nodeById.id, this.config.properties, params.nodes[0]);
-					//nodesArray.push(params.nodes[0]);
-				}
-			}
-		});
-
-		var ul = document.createElement('ul');
-		ul.className = 'custom-menu';
-		document.body.append(ul);
-
-		//On a node right click it puts out all properties of the clicked node and a link to the node wiki-page
-		this.network.on('oncontext', (params) => {
-			params.event.preventDefault();
-			var timeNow = Date.now();
-			var timeDiff = timeNow - this.start;
-			if (timeDiff > 300) {
-				this.start = Date.now();
-				$('.custom-menu').each((index, element) => {
-					element.innerHTML = '';
-				}); //clear menue
-
-				var selected_node_id = this.network.getNodeAt({
-					x: params.pointer.DOM.x,
-					y: params.pointer.DOM.y,
-				});
-				var selected_edge_id = this.network.getEdgeAt({
-					x: params.pointer.DOM.x,
-					y: params.pointer.DOM.y,
-				});
-				if (!(selected_edge_id && selected_node_id)) {
-					//edge clicked
-					var selected_edge = this.data.edges.get(selected_edge_id);
-					if (selected_edge.from) {
-						params.event.preventDefault();
-						if (selected_edge.label == 'Category') {
-							//create Category page link
-							var li = document.createElement('li');
-							li.innerHTML = '' + '\uD83D\uDD17' + ' ' + selected_edge.to;
-							li.addEventListener('click', () =>
-								window.open(isg.util.articlePath(selected_edge.to))
-							);
-							ul.prepend(li);
-						} else {
-							//create property page link
-							var li = document.createElement('li');
-							li.innerHTML = '' + '\uD83D\uDD17' + ' ' + selected_edge.label;
-							li.addEventListener('click', () =>
-								window.open(
-									mw.config
-										.get('wgArticlePath')
-										.replace('$1', 'Property:' + selected_edge.label)
-								)
-							);
-							ul.prepend(li);
-						}
-						$('.custom-menu')
-							.finish()
-							.toggle(100)
-							.css({
-								top: params.event.pageY + 'px',
-								left: params.event.pageX + 'px',
-								display: 'block',
-							});
-					}
-				}
-				if (selected_node_id) {
-					//node clicked
-					params.event.preventDefault();
-
-					const selected_node = this.data.nodes.get(selected_node_id);
-
-					if (selected_node.url) {
-						var li = document.createElement('li');
-						li.classList.add('custom-menu-link-entry');
-						li.innerHTML = '' + '\uD83D\uDD17' + ' ' + selected_node.label;
-						li.addEventListener('click', () => window.open(selected_node.url));
-						ul.prepend(li);
-					}
-
-					mwjson.api
-						.getSemanticProperties(selected_node.id)
-						.then((page_properties) => {
-							page_properties = page_properties.filter((el) => {
-								return !this.config.ignore_properties.includes(el);
-							}); //remove ignored properties
-							for (var i = 0; i < page_properties.length; i++) {
-								if (!page_properties[i].startsWith('_')) {
-									var li = document.createElement('li');
-									li.classList.add('custom-menu-property-entry');
-									li.dataset.action = page_properties[i].replaceAll('_', ' ');
-									li.innerHTML = page_properties[i].replaceAll('_', ' ');
-									ul.append(li);
-								}
-							}
-							this.create_link(this.data);
-
-							//On left click on one of the properties it creates nodes for the clicked property and if the legend doesnt have that property as a legend entry it is created
-							$('.custom-menu li.custom-menu-property-entry').click((event) => {
-								var clickedProperty = [$(event.target).attr('data-action')];
-								var clickedPropertyColor = this.randomColor.randomHSL();
-								if (!(clickedProperty in this.legendColors)) {
-									this.legendColors[clickedProperty] = clickedPropertyColor;
-								} else {
-									clickedPropertyColor = this.legendColors[clickedProperty];
-								}
-								if (this.objColors[clickedProperty]) {
-									clickedPropertyColor = this.objColors[clickedProperty];
-								} else {
-									this.objColors[clickedProperty] = clickedPropertyColor;
-								}
-								if (!this.objClickedProps[selected_node.id]) {
-									this.objClickedProps[selected_node.id] = new Array();
-								}
-								if (
-									!this.objClickedProps['' + selected_node.id].includes(
-										clickedProperty[0]
-									)
-								) {
-									this.fetchData(
-										selected_node.id,
-										clickedProperty,
-										selected_node.id
-									);
-									this.objClickedProps['' + selected_node.id].push(
-										clickedProperty[0]
-									);
-								}
-								if (
-									!(
-										(
-											this.contextCreatedProps.includes(clickedProperty[0]) ||
-											this.config.properties.includes(clickedProperty[0])
-										) /*|| this.legendColors[clickedProperty[0]]*/
-									)
-								) {
-									this.contextCreatedProps.push(clickedProperty[0]);
-									this.options.groups[clickedProperty] = {
-										hidden: false,
-									};
-									this.ui.addLegendEntry(
-										clickedProperty,
-										clickedProperty,
-										clickedPropertyColor
-									);
-								}
-								$('.custom-menu').hide(100);
-							});
-						});
-					$('.custom-menu')
-						.finish()
-						.toggle(100)
-						.css({
-							top: params.event.pageY + 'px',
-							left: params.event.pageX + 'px',
-							display: 'block',
-						});
-				}
-			}
-		});
-	}
-
-	//hides nodes if their main creation property was clicked in the legend
-	legendFunctionality(legendGroup) {
-		//var legendGroup = this.parentNode.childNodes[1].innerHTML;
-
-		//A node is visible if at least one path over visible edges to the root node exists.
-		this.options.groups[legendGroup].hidden =
-			!this.options.groups[legendGroup].hidden; //toggle state
-
-		//update all edges
-		this.data.edges.forEach((edge) => {
-			edge.hidden = this.options.groups[edge.label].hidden;
-			edge.physics = !edge.hidden;
-		});
-		//reset nodes
-		this.data.nodes.forEach((node) => {
-			node.hidden = false;
-			node.physics = !node.hidden;
-			node.visited = false;
-		});
-		//check each node
-		this.data.nodes.forEach((node) => {
-			this.setNodeVisibilityByVisiblePath(node.id, this.config.root);
-			//reset visited state. Todo: Reuse visited nodes between runs
-			this.data.nodes.forEach((node) => {
-				node.visited = false;
-			});
-		});
-
-		this.network.setOptions(this.options);
-		this.network.body.emitter.emit('_dataChanged');
-		this.network.redraw();
-		var allFalse = Object.keys(this.options.groups).every((k) => {
-			if (k === 'useDefaultGroups') {
-				return true;
-			}
-			return this.options.groups[k].hidden === false;
-		});
-		if (allFalse === true) {
-			/*this.oldGroups = {};*/
-		}
-	}
-
-	//Checks, if a node has a path over visible edges to the root node.
-	//If not, the nodes gets hidden
-	setNodeVisibilityByVisiblePath(nodeId, rootNodeId) {
-		if (nodeId == rootNodeId) return true; //root is always visible
-		var node = this.data.nodes.get(nodeId);
-		if (node.visited) return !node.hidden; //prevent circles. ToDo: Reuse results between runs
-		node.visited = true;
-		node.hidden = true;
-		var connectedEdgesIds = this.network.getConnectedEdges(nodeId);
-		var connectedEdges = this.data.edges.get(connectedEdgesIds);
-		connectedEdges.forEach((edge) => {
-			if (edge.hidden) return; //don't follow hidden edges
-			var connectedNodesIds = this.network.getConnectedNodes(edge.id);
-			var connectedNodes = this.data.nodes.get(connectedNodesIds);
-			connectedNodes.forEach((connectedNode) => {
-				if (connectedNode.id == nodeId) return; //prevent self evaluation
-				if (this.setNodeVisibilityByVisiblePath(connectedNode.id, rootNodeId)) {
-					node.hidden = false; //set node visible, if at least one connected node is visible
-				}
-			});
-		});
-		node.physics = !node.hidden; //disable physics for hidden nodes
-		return !node.hidden;
-	}
-
-	//Add Node popup
-	editNode(data, cancelAction, callback) {
-		// ...
-	}
-
-	clearNodePopUp() {
-		// ...
-	}
-
-	cancelNodeEdit(callback) {
-		// ...
-	}
-
-	saveNodeData(data, callback) {
-		//
-	}
-	//addEdge popup
-	editEdgeWithoutDrag(data, callback) {
-		//
-	}
-
-	clearEdgePopUp() {
-		document.getElementById('edge-saveButton').onclick = null;
-		document.getElementById('edge-cancelButton').onclick = null;
-		document.getElementById('edge-popUp').style.display = 'none';
-	}
-
-	cancelEdgeEdit(callback) {
-		this.clearEdgePopUp();
-		callback(null);
-	}
-
-	//Save button on create edge popup
-	async saveEdgeData(data, callback) {
-		// ..
-	}
-
-	//Deletes node in manipulation mode and the wiki page.
-	async deleteSelectedNode(data, callback) {
-		// ...
-	}
-
-	//Deletes edge in manipulation mode and deletes the property from the node wikipages
-	async deleteSelectedEdge(data, callback) {
-		// ...
-	}
-
-	//The function getAllEdgesBetween() returns all edges between two nodes
-	getAllEdgesBetween(node1, node2) {
-		return this.data.edges.get().filter((edge) => {
-			return (
-				(edge.from === node1 && edge.to === node2) ||
-				(edge.from === node2 && edge.to === node1)
-			);
-		});
-	}
-
-	//Gets Path array with nodes, returns Cartesian Product  of edges
-	getEdgePathsForPath(path) {
-		var arraysOfEdgesForNodeInPath = [];
-		for (var i = 1; i < path.length; i++) {
-			var edgesBetween = this.getAllEdgesBetween(path[i - 1], path[i]);
-			var localedgesBetween = edgesBetween.slice();
-
-			arraysOfEdgesForNodeInPath.push(localedgesBetween);
-		}
-		var allEdgePaths = isg.util.cartesianProduct(arraysOfEdgesForNodeInPath);
-		return allEdgePaths;
-	}
-
-	//Gets Path array with nodes, returns all possible edge paths
-	getEdgeLabelStringsForPath(path) {
-		var allEdgePaths = this.getEdgePathsForPath(path);
-		var allStrings = new Array(allEdgePaths.length);
-		for (var i = 0; i < allEdgePaths.length; i++) {
-			var s = '';
-			for (var j = 0; j < allEdgePaths[i].length; j++) {
-				var edge = allEdgePaths[i][j];
-				var label = edge.label;
-				var nodeId1 = path[j];
-				var nodeId2 = path[j + 1];
-				if (edge.to == nodeId1 && edge.from == nodeId2) {
-					label = isg.util.reverseLabel(label);
-				}
-				if (j == allEdgePaths[i].length - 1) {
-					s = s + label;
-				} else {
-					s = s + label + '.';
-				}
-			}
-			allStrings[i] = s;
-		}
-		return allStrings;
-	}
-	//Gets Path arrays with nodes, returns all possible edge paths
-	getAllStringsForAllPaths(paths) {
-		var arrayOfAllStrings = [];
-		for (var i = 0; i < paths.length; i++) {
-			var path = paths[i];
-			var allStrings = this.getEdgeLabelStringsForPath(path);
-			arrayOfAllStrings.push(allStrings);
-		}
-		return arrayOfAllStrings;
-	}
-
-	//Returns all paths between startNode and endNode
-	findAllPaths(startNode, endNode) {
-		var visitedNodes = [];
-		var currentPath = [];
-		var allPaths = [];
-		this.dfs(startNode, endNode, currentPath, allPaths, visitedNodes);
-		return allPaths;
-	}
-
-	//Algorithm to search for all paths between two nodes
-	dfs(start, end, currentPath, allPaths, visitedNodes) {
-		if (visitedNodes.includes(start)) return;
-		visitedNodes.push(start);
-		currentPath.push(start);
-		if (start == end) {
-			var localCurrentPath = currentPath.slice();
-			allPaths.push(localCurrentPath);
-			isg.util.removeItemFromArray(visitedNodes, start);
-			currentPath.pop();
-			return;
-		}
-		var neighbours = this.network.getConnectedNodes(start);
-		for (var i = 0; i < neighbours.length; i++) {
-			var current = neighbours[i];
-			this.dfs(current, end, currentPath, allPaths, visitedNodes);
-		}
-		currentPath.pop();
-		isg.util.removeItemFromArray(visitedNodes, start);
-	}
-	//Algorithm that gets all nodes that are reachable from the given node in the graph
-	getAllReachableNodesTo(nodeId, excludeIds, reachableNodes) {
-		if (reachableNodes.includes(nodeId) || excludeIds.includes(nodeId)) {
-			return;
-		}
-		var children = this.network.getConnectedNodes(nodeId);
-		reachableNodes.push(nodeId);
-		for (var i = 0; i < children.length; i++) {
-			this.getAllReachableNodesTo(children[i], excludeIds, reachableNodes);
-			// if(excludeIds.includes(children[i]))continue;
-			// reachableNodes.push(children[i]);
-		}
-	}
-
-	//This function deletes all children of a given node.
-	deleteNodesChildren(nodeId, deleteEdge) {
-		var excludedIds = [];
-		if (deleteEdge === true) {
-			//console.log("deleteEdge true")
-		} else {
-			excludedIds.push(nodeId);
-		}
-		var reachableNodesTo = [];
-		this.getAllReachableNodesTo(
-			this.config.root,
-			excludedIds,
-			reachableNodesTo
+	function uuidv4() {
+		return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
+			(
+				c ^
+				(crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))
+			).toString(16)
 		);
-		var nodesToDelete = [];
-		var allIds = this.data.nodes.getIds();
-		for (var i = 0; i < allIds.length; i++) {
-			if (reachableNodesTo.includes(allIds[i])) continue;
-			if (allIds[i] == nodeId) {
-				this.deleteEdges(nodeId);
-				continue;
-			}
-			nodesToDelete.push(allIds[i]);
-			this.deleteEdges(allIds[i]);
-			this.data.nodes.remove(allIds[i]);
-			delete this.objClickedProps['' + allIds[i]];
-		}
-		return nodesToDelete;
 	}
-	//Deletes all edges from given node
-	deleteEdges(nodeID) {
-		var fromEdges = this.data.edges.get({
-			filter: (item) => {
-				return item.from == nodeID;
-			},
-		});
-		for (var j = 0; j < fromEdges.length; j++) {
-			this.data.edges.remove(fromEdges[j]);
-		}
+
+	function randomHSL() {
+		var golden = 0.618033988749895;
+		var h = Math.random() + golden;
+		h %= 1;
+		return 'hsla(' + 360 * h + ',' + '70%,' + '80%,1)';
 	}
+
+	return {
+		initialize,
+		getDefaultOptions,
+	};
 };
 
+$(document).ready(async function () {
+	var semanticGraphs = JSON.parse(mw.config.get('knowledgegraphs'));
+
+	/*
+const code = `const hello = () => console.log("ハロー")
+export default { hello }`;
+
+const mod = await import(`data:text/javascript,${code}`)
+ 
+mod.default.hello() ;
+*/
+
+	async function getModule(str) {
+		var module = await import(`data:text/javascript;base64,${btoa(str)}`);
+		if ('default' in module) {
+			return module.default;
+		}
+		return null;
+	}
+
+	$('.KnowledgeGraph').each(async function (index) {
+		var graphData = semanticGraphs[index];
+
+		if (graphData.graphOptions && Object.keys(graphData.graphOptions).length) {
+			var result = await getModule(graphData.graphOptions);
+			if (result) {
+				graphData.graphOptions = result;
+			}
+		}
+
+		if (
+			graphData.propertyOptions &&
+			Object.keys(graphData.propertyOptions).length
+		) {
+			for (var i in graphData.propertyOptions) {
+				var result = await getModule(graphData.propertyOptions[i]);
+				if (result) {
+					graphData.propertyOptions[i] = result;
+				}
+			}
+		}
+
+		var config = $.extend(
+			{
+				data: {},
+				graphOptions: new KnowledgeGraph().getDefaultOptions(),
+				propertyOptions: {},
+				'only-properties': [],
+				'nodes-by-properties': {},
+				depth: '',
+				width: '',
+				height: '',
+				'show-toolbar': '',
+			},
+			graphData
+		);
+
+		if (config.width !== '') {
+			graphData.graphOptions.width = config.width;
+		}
+		if (config.height !== '') {
+			graphData.graphOptions.height = config.height;
+		}
+
+		var graph = new KnowledgeGraph();
+		graph.initialize(this, config);
+	});
+});

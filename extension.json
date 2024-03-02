@@ -2,11 +2,7 @@
     "manifest_version":2,
     "name":"KnowledgeGraph",
     "version":"0.1",
-    "author":[
-        "[https://github.com/simontaurus Simon Stier]",
-        "[https://github.com/AlexanderPraktikum2021 Alexander Triol]",
-        "[https://www.mediawiki.org/wiki/User:Thomas-topway-it thomas-topway-it]"
-    ],
+    "author": "Thomas-topway-it for KM-A",
     "url":"https://github.com/SemanticMediaWiki/KnowledgeGraph",
     "descriptionmsg":"knowledge-graph-desc",
     "namemsg":"knowledge-graph-name",
@@ -30,32 +26,16 @@
 	"APIModules": {
 		"knowledgegraph-semantic-properties": "KnowledgeGraphApiSemanticProperties"		
 	},
-	"namespaces": [
-		{
-			"id": 2400,
-			"constant": "NS_KNOWLEDGEGRAPH",
-			"name": "KnowledgeGraph",
-			"defaultcontentmodel": "json",
-			"content": true,
-			"subpages": false
-		},
-		{
-			"id": 2401,
-			"constant": "NS_KNOWLEDGEGRAPH_TALK",
-			"name": "KnowledgeGraphTalk"
-		}
-	],
 	"ResourceModules":{
         "ext.KnowledgeGraph":{
             "localBasePath":"resources",
             "remoteExtPath":"KnowledgeGraph/resources",
             "styles":[
-            	"bootstrap.min.css",
                 "KnowledgeGraph.css"
             ],
             "scripts":[
                 "visNetwork/vis-network.min.js",
-                "KnowledgeGraphKMA.js"
+                "KnowledgeGraph.js"
             ],
             "dependencies": [
 				"mediawiki.util",

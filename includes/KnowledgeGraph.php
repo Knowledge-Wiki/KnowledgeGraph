@@ -12,7 +12,7 @@ class KnowledgeGraph {
 	protected static $SMWApplicationFactory = null;
 	protected static $SMWStore = null;
 	protected static $SMWDataValueFactory = null;
-	private static $nodes = [];
+	private static $data = [];
 
 	public static function initSMW() {
 		if ( !defined( 'SMW_VERSION' ) ) {
@@ -111,79 +111,83 @@ class KnowledgeGraph {
 
 /*
 {{#knowledgegraph:
-root=TestPage
+nodes=TestPage
 |only-properties=HasProperty1,HasProperty2
-|permalink=false
-|autoexpand=false
 |depth=3
+|graph-options=Mediawiki:knowledgegraphGraphOptions
+|property-options?HasProperty1=Mediawiki:knowledgegraphNodeOptionsHasProperty1
+|show-toolbar=false
+|width= 400px
+|heigth= 400px
 }}
 */
 		$defaultParameters = [
-			'root' => [ '', 'string' ],
 			'nodes' => [ '', 'array' ],
 			'only-properties' => [ '', 'array' ],
 			'nodes-by-properties' => [ '', 'array' ],
-			'permalink' => [ 'false', 'boolean' ],
 			// 'autoexpand' => [ 'false', 'boolean' ],
 			'depth' => [ '3', 'integer' ],
-			'nodeoptions' => [ '', 'string' ],
+			'graph-options' => [ '', 'string' ],
+			// 'node-options' => [ '', 'string' ],
+			// 'edge-options' => [ '', 'string' ],
+			'width' => [ '400px', 'string' ],
+			'height' => [ '400px', 'string' ],
+			'show-toolbar' => [ 'false', 'boolean' ],
 		];
 
 		[ $values, $params ] = self::parseParameters( $argv, array_keys( $defaultParameters ) );
 
 		$params = self::applyDefaultParams( $defaultParameters, $params );
-		
+
 		$propertyOptions = [];
 		// property-related options
 		foreach ( $values as $val ) {
-			if ( preg_match( '/^propertyoptions(\?(.+))?=(.+)/', $val, $match ) ) {
+			if ( preg_match( '/^property-options(\?(.+))?=(.+)/', $val, $match ) ) {
 				$propertyOptions[$match[2]] = $match[3];
 			}
 		}
 
 		self::initSMW();
 		$propertiesById = [];
+
 		foreach ( $params['nodes'] as $titleText ) {
 			$title_ = Title::newFromText( $titleText );
 			if ( $title_ && $title_->isKnown() ) {
-				// $id_ = $title_->getArticleID();
-				// $nodes[$id_] = Title::newFromText( $titleText )->getText();
-				// $propertiesById[$id_] = self::getSemanticData( $title_ );
-					
-				// if ( !isset( self::$nodes[$id_] ) ) {
-				if ( !isset( self::$nodes[$title_->getFullText()] ) ) {
-					self::$nodes[$title_->getFullText()] = self::getSemanticData( $title_, $params['only-properties'], 0, $params['depth'] );
+				if ( !isset( self::$data[$title_->getFullText()] ) ) {
+					self::setSemanticData( $title_, $params['only-properties'], 0, $params['depth'] );
 				}
 			}
 		}
 
-		$nodeOptions = [];
-		if ( !empty( $params['nodeoptions'] ) ) {
-			$title_ = Title::newFromText( $params['nodeoptions'], NS_KNOWLEDGEGRAPH );
+		$graphOptions = [];
+		if ( !empty( $params['graph-options'] ) ) {
+		
+			// , NS_KNOWLEDGEGRAPH
+			$title_ = Title::newFromText( $params['graph-options'], NS_MEDIAWIKI );
 
 			if ( $title_ && $title_->isKnown() ) {
-				$nodeOptions = json_decode( self::getWikipageContent( $title_ ), true );
+		
+				// $graphOptions = json_decode( self::getWikipageContent( $title_ ), true );
+				$graphOptions = self::getWikipageContent( $title_ );
 			}
 		}
 
 		foreach ( $propertyOptions as $property => $titleText ) {
-			$title_ = Title::newFromText( $params['nodeoptions'], NS_KNOWLEDGEGRAPH );
+			$title_ = Title::newFromText( $titleText, NS_MEDIAWIKI );
 			if ( $title_ && $title_->isKnown() ) {
-				$propertyOptions[$property] = json_decode( self::getWikipageContent( $title_ ), true );
+				// $propertyOptions[$property] = json_decode( self::getWikipageContent( $title_ ), true );
+				$propertyOptions[$property] = self::getWikipageContent( $title_ );
 			} else {
 				unset( $propertyOptions[$property] );
 			}
 		}
 
-		$params['nodes'] = self::$nodes;
+		$params['data'] = self::$data;
 		// $params['propertiesById'] = $propertiesById;
-		$params['nodeOptions'] = $nodeOptions;
+		$params['graphOptions'] = $graphOptions;
 		$params['propertyOptions'] = $propertyOptions;
 		self::$graphs[] = $params;
 
-// print_r($params);
-
-// exit();
 		$out->setExtensionData( 'knowledgegraphs', self::$graphs );
 
 		return [
@@ -204,6 +208,7 @@ root=TestPage
 			return null;
 		}
 		$content = $wikiPage->getContent( \MediaWiki\Revision\RevisionRecord::RAW );
+
 		if ( !$content ) {
 			return null;
 		}
@@ -324,13 +329,17 @@ root=TestPage
 	 * @param int $maxDepth
 	 * @return array
 	 */
-	public static function getSemanticData( Title $title, $onlyProperties, $depth, $maxDepth ) {
+	public static function setSemanticData( Title $title, $onlyProperties, $depth, $maxDepth ) {
 		$langCode = \RequestContext::getMain()->getLanguage()->getCode();
 		$propertyRegistry = \SMW\PropertyRegistry::getInstance();
 		$dataTypeRegistry = \SMW\DataTypeRegistry::getInstance();
-		$subject = new \SMW\DIWikiPage( $title, NS_MAIN );
+		$subject = new \SMW\DIWikiPage( $title->getDbKey(), $title->getNamespace() );
 		$semanticData = self::$SMWStore->getSemanticData( $subject );
 		$output = [];
+
+		// ***important, this prevents infinite recursion
+		self::$data[$title->getFullText()] = [];
+
 		foreach ( $semanticData->getProperties() as $property ) {
 			$key = $property->getKey();
 			if ( in_array( $key, self::$exclude ) ) {
@@ -363,7 +372,7 @@ root=TestPage
 				$typeId_ = $dataTypeRegistry->getFieldType( $typeID );
 				$typeLabel = $dataTypeRegistry->findTypeLabel( $typeId_ );
 			}
-
+		
 			$output[$canonicalLabel] = [
 				'key' => $key,
 				'typeId' => $typeID,
@@ -380,22 +389,23 @@ root=TestPage
 					$dataValue->setOption( 'no.text.transformation', true );
 					$dataValue->setOption( 'form/short', true );
 
-					$output[$canonicalLabel]['values'][] = $dataValue->getWikiValue();
-
 					if ( $typeID === '_wpg' && $depth <= $maxDepth ) {
 						$title_ = $dataItem->getTitle();
-						// $id_ = $title_->getArticleID();
-					 	// if ( !isset( self::$nodes[$id_] ) ) {
 					 	if ( $title_ && $title_->isKnown()
-					 		&& !isset( self::$nodes[$title_->getFullText()] ) ) {
-							self::$nodes[$title_->getFullText()] = self::getSemanticData( $title_, $onlyProperties, ++$depth, $maxDepth );
+					 		&& !isset( self::$data[$title_->getFullText()] ) ) {
+							self::setSemanticData( $title_, $onlyProperties, ++$depth, $maxDepth );
+							$output[$canonicalLabel]['values'][] = $title_->getFullText();
+						} else if ( !isset( self::$data[str_replace( '_', '', $dataValue->getWikiValue())] ) ) {
+							$output[$canonicalLabel]['values'][] = $dataValue->getWikiValue();
 						}
+					} else {
+						$output[$canonicalLabel]['values'][] = $dataValue->getWikiValue();
 					}
 				}
 			}
 		}
 
-		return $output;
+		self::$data[$title->getFullText()] = $output;
 	}
 
 }
