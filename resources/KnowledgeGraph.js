@@ -157,6 +157,7 @@ KnowledgeGraph = function () {
 				// }
 
 				var color = randomHSL();
+
 				var propLabel =
 					(data[label][i].preferredLabel !== ''
 						? data[label][i].preferredLabel
@@ -209,7 +210,7 @@ KnowledgeGraph = function () {
 									label:
 										propValue.length <= maxPropValueLength
 											? propValue
-											: propValue.substr(0, maxPropValueLength) + ' ...',
+											: propValue.substr(0, maxPropValueLength) + ' …',
 								}
 							)
 						);
