@@ -302,6 +302,25 @@ KnowledgeGraph = function () {
 
 		if (config['show-toolbar']) {
 			Config.graphOptions.configure.enabled = false;
+
+			var messageWidget = new OO.ui.MessageWidget({
+				type: 'info',
+				//  mw.msg(
+				label: new OO.ui.HtmlSnippet(
+					'Press the button below and copy/paste the contents of the "nodes" and "edges" keys in an article <a target="_blank" href="' +
+						mw.config
+							.get('wgArticlePath')
+							.replace('$1', 'MediaWiki:KnowledgeGraphOptions') +
+						'">like this</a>. Then set it as value of the "graph-options" or "property-options?[Property label] parameters of the KnowledgeGraph\'s parser-function'
+				),
+				invisibleLabel: false,
+				// classes:
+			});
+
+			$(containerOptions)
+				.find('.vis-configuration.vis-config-option-container')
+				.prepend(messageWidget.$element);
+
 			$(ContainerOptions).toggle(false);
 		}
 
