@@ -396,10 +396,15 @@ nodes=TestPage
 				$typeId_ = $dataTypeRegistry->getFieldType( $typeID );
 				$typeLabel = $dataTypeRegistry->findTypeLabel( $typeId_ );
 			}
-		
-			$output[$canonicalLabel] = [
+
+			$propertyTitle = $property->getCanonicalDiWikiPage()->getTitle();
+			$objKey = $propertyTitle->getFullText();
+
+			$output[$objKey] = [
+				// 'url' => $propertyTitle->getFullURL(),
 				'key' => $key,
 				'typeId' => $typeID,
+				'canonicalLabel' => $canonicalLabel,
 				'preferredLabel' => $preferredLabel,
 				'typeLabel' => $typeLabel,
 				'description' => $description,
@@ -422,12 +427,12 @@ nodes=TestPage
 								// not loaded
 								self::$data[$title_->getFullText()] = null;
 							}
-							$output[$canonicalLabel]['values'][] = $title_->getFullText();
+							$output[$objKey]['values'][] = $title_->getFullText();
 						} else if ( !isset( self::$data[str_replace( '_', '', $dataValue->getWikiValue())] ) ) {
-							$output[$canonicalLabel]['values'][] = $dataValue->getWikiValue();
+							$output[$objKey]['values'][] = $dataValue->getWikiValue();
 						}
 					} else {
-						$output[$canonicalLabel]['values'][] = $dataValue->getWikiValue();
+						$output[$objKey]['values'][] = $dataValue->getWikiValue();
 					}
 				}
 			}

@@ -45,7 +45,11 @@
 				"oojs-ui-widgets",
 				"oojs-ui-toolbars",
 				"oojs-ui-windows",
-				"mediawiki.widgets"
+				"mediawiki.widgets",
+				"oojs-ui.styles.icons-moderation",
+				"oojs-ui.styles.icons-editing-core",
+				"oojs-ui.styles.icons-interactions",
+				"oojs-ui.styles.icons-accessibility"
             ],
             "position":"top"
         }

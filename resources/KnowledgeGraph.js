@@ -15,16 +15,26 @@ KnowledgeGraph = function () {
 	var Config;
 	var Container;
 	var Properties = {};
-	var ModelProperties = {};
+	// var ModelProperties = {};
 	var SelectedNode = null;
 	var TmpData;
 	var Network;
+	var PopupMenuId = 'knowledgegraphp-popup-menu';
 
 	function deleteNode(nodeId) {
 		var children = Network.getConnectedNodes(nodeId);
-		children = children.filter((x) => !(x in Data));
+		children = children.filter(
+			(x) => !(x in Data) || Network.getConnectedNodes(x).length === 1
+		);
 		children.push(nodeId);
+
+		for (var nodeId of children) {
+			Edges.remove( Network.getConnectedEdges(nodeId));
+		}
 		Nodes.remove(children);
+		for (var nodeId of children) {
+			delete Data[nodeId];
+		}
 	}
 
 	function loadNodes(value) {
@@ -42,7 +52,6 @@ KnowledgeGraph = function () {
 						// console.log('thisRes', thisRes);
 						if ('data' in thisRes[payload.action]) {
 							var data_ = JSON.parse(thisRes[payload.action].data);
-							Data = jQuery.extend(Data, data_);
 							resolve(data_);
 						} else {
 							reject();
@@ -54,10 +63,47 @@ KnowledgeGraph = function () {
 						reject(thisRes);
 					});
 			});
+		}).catch((err) => {
+			console.log('err', err);
 		});
 	}
 
-	function addNode(label) {
+	function createHTMLTitle(label) {
+		var fieldset = new OO.ui.FieldsetLayout({
+			label: label,
+		});
+
+		var items = [];
+
+		var linkButton = new OO.ui.ButtonWidget({
+			label: 'open',
+			icon: 'link',
+			flags: [],
+		});
+
+		items.push(linkButton);
+
+		var deleteButton = new OO.ui.ButtonWidget({
+			label: 'open',
+			icon: 'trash',
+			flags: ['destructive'],
+		});
+
+		items.push(deleteButton);
+
+		fieldset.addItems(items);
+
+		var panel = new OO.ui.PanelLayout({
+			padded: true,
+			expanded: false,
+		});
+
+		panel.$element.append(fieldset.$element);
+
+		return panel.$element.get(0);
+	}
+
+	function addNode(data, label) {
 		if (Nodes.get(label) !== null) {
 			return;
 		}
@@ -70,15 +116,17 @@ KnowledgeGraph = function () {
 				label: label,
 				shape: 'box',
 				font: { size: 30 },
-				// title: 'sdds <ul> <li>a</ul>',
+
+				// https://visjs.github.io/vis-network/examples/network/other/popups.html
+				// title: createHTMLTitle(label),
 			}
 		);
 
-		if (!(label in Data)) {
+		if (!(label in data)) {
 			nodeConfig.color = 'red';
 		}
 
-		if (Data[label] === null) {
+		if (data[label] === null) {
 			nodeConfig.opacity = 0.5;
 			nodeConfig.shapeProperties.borderDashes = [5, 5];
 		}
@@ -88,66 +136,74 @@ KnowledgeGraph = function () {
 
 	function createNodes(data) {
 		for (var label in data) {
-			addNode(label);
+			if (label in Data && Data[label] !== null) {
+				continue;
+			}
+
+			addNode(data, label);
 
 			// not loaded
 			if (data[label] === null) {
 				continue;
 			}
 
-			for (var propLabel in data[label]) {
-				if (
-					propLabel in ModelProperties &&
-					ModelProperties[propLabel].getValue() === false
-				) {
-					continue;
-				}
+			// i is property Article title
+			for (var i in data[label]) {
+				// if (
+				// 	propLabel in ModelProperties &&
+				// 	ModelProperties[propLabel].getValue() === false
+				// ) {
+				// 	continue;
+				// }
 
 				var color = randomHSL();
-				var propLabel_ =
-					propLabel +
+				var propLabel =
+					(data[label][i].preferredLabel !== ''
+						? data[label][i].preferredLabel
+						: data[label][i].canonicalLabel) +
 					(!Config['show-property-type']
 						? ''
-						: ' (' + data[label][propLabel].typeLabel + ')');
+						: ' (' + data[label][i].typeLabel + ')');
 
-				switch (data[label][propLabel].typeId) {
+				switch (data[label][i].typeId) {
 					case '_wpg':
-						for (var label_ of data[label][propLabel].values) {
+						for (var label_ of data[label][i].values) {
 							var edgeConfig = jQuery.extend(
 								JSON.parse(JSON.stringify(Config.graphOptions.edges)),
 								{
 									from: label,
 									to: label_,
-									label: propLabel_,
-									// group: propLabel,
+									label: propLabel,
+									group: label,
 								}
 							);
 
 							edgeConfig.arrows.to.enabled = true;
 							Edges.add(edgeConfig);
-							addNode(label_);
+							addNode(data, label_);
 						}
 
 						break;
 					// @TODO complete with other property types
 					default:
-						var valueId = uuidv4();
+						var valueId = `${i}#${uuidv4()}`;
 
 						Edges.add({
 							from: label,
 							to: valueId,
-							label: propLabel_,
-							// color: color,
-							// group: propLabel,
+							label: propLabel,
+							group: label,
 						});
 
-						var propValue = data[label][propLabel].values.join(', ');
+						var propValue = data[label][i].values.join(', ');
 
 						Nodes.add(
 							jQuery.extend(
-								propLabel in Config.propertyOptions
-									? Config.propertyOptions[propLabel]
-									: { color },
+								data[label].preferredLabel in Config.propertyOptions
+									? Config.propertyOptions[data[label].preferredLabel]
+									: data[label].canonicalLabel in Config.propertyOptions
+										? Config.propertyOptions[data[label].canonicalLabel]
+										: { color },
 								{
 									id: valueId,
 									label:
@@ -160,6 +216,58 @@ KnowledgeGraph = function () {
 				}
 			}
 		}
+
+		Data = jQuery.extend(Data, data);
+	}
+
+	function ContextMenu(config) {
+		var el = document.getElementById(PopupMenuId);
+		if (el) {
+			el.remove();
+		}
+		var el = document.createElement('div');
+		el.id = PopupMenuId;
+		el.className = config.className;
+
+		var html = '';
+		var ul = document.createElement('ul');
+		el.append(ul);
+
+		for (var item of config.items) {
+			var li = document.createElement('li');
+			var span = document.createElement('span');
+			span.className =
+				'oo-ui-iconElement oo-ui-iconElement-icon oo-ui-labelElement-invisible oo-ui-iconWidget oo-ui-icon-' +
+				item.icon;
+			li.append(span);
+			var textNode = document.createTextNode(item.label);
+			li.append(textNode);
+			li.addEventListener('click', item.onClick);
+			ul.append(li);
+		}
+
+		$(document).click(function () {
+			var el = document.getElementById(PopupMenuId);
+			if (el) {
+				el.remove();
+			}
+		});
+
+		$('#' + PopupMenuId).click(function (e) {
+			e.stopPropagation();
+			return false;
+		});
+		this.el = el;
+	}
+
+	ContextMenu.prototype.showAt = function (x, y) {
+		this.el.style.left = x + 'px';
+		this.el.style.top = y + 'px';
+		document.body.appendChild(this.el);
+	};
+
+	function isObject(obj) {
+		return obj !== null && typeof obj === 'object' && !Array.isArray(obj);
 	}
 
 	function initialize(container, config) {
@@ -178,8 +286,6 @@ KnowledgeGraph = function () {
 
 		var options = getDefaultOptions();
 
-		Data = config.data;
-
 		//create the network
 		Network = new vis.Network(
 			container,
@@ -187,21 +293,44 @@ KnowledgeGraph = function () {
 			config.graphOptions
 		);
 
-		createNodes(Data);
+		createNodes(config.data);
 
 		var self = this;
 
 		Network.on('oncontext', function (params) {
+			params.event.preventDefault();
+
 			var nodeId = params.nodes[0];
-			if (nodeId !== undefined && nodeId in Data) {
-				params.event.preventDefault();
-				Properties = Data[nodeId];
-				openDialog(nodeId);
-				return;
+			//  && nodeId in Data
+			if (nodeId !== undefined) {
+				// console.log('params', params);
+
+				var menuObj = {
+					items: [
+						{
+							label: 'open article',
+							icon: 'link',
+							onClick: function () {
+								var url = mw.config.get('wgArticlePath').replace('$1', nodeId);
+								window.open(url, '_blank').focus();
+							},
+						},
+						{
+							label: 'delete node',
+							icon: 'trash',
+							onClick: function () {
+								if (confirm('Are you sure you want to delete this node ?')) {
+									deleteNode(nodeId);
+								}
+							},
+						},
+					],
+					className: 'KnowledgeGraphPopupMenu',
+				};
+
+				PopupMenu = new ContextMenu(menuObj);
+				PopupMenu.showAt(params.event.pageX, params.event.pageY);
 			}
-			return;
-			// openDialog(null);
-			// Canvas = params.pointer.canvas;
 		});
 
 		Network.on('click', function (params) {
@@ -242,8 +371,8 @@ KnowledgeGraph = function () {
 
 			if (!(nodeId in Data) || Data[nodeId] === null) {
 				loadNodes(params.nodes[0]).then(function (data) {
+					console.log('data', data);
 					createNodes(data);
-
 					Nodes.update([
 						{
 							id: nodeId,
@@ -259,6 +388,9 @@ KnowledgeGraph = function () {
 	}
 
 	function openDialog(nodeId) {
+		Properties = {};
+		TmpData = {};
+
 		// Create and append a window manager.
 		var windowManager = new OO.ui.WindowManager();
 		$(document.body).append(windowManager.$element);
@@ -269,14 +401,15 @@ KnowledgeGraph = function () {
 		});
 
 		windowManager.addWindows([myDialog]);
-
 		windowManager.openWindow(myDialog, { nodeId, title: nodeId });
 	}
 
 	function MyDialog(config) {
 		MyDialog.super.call(this, config);
 	}
+
 	OO.inheritClass(MyDialog, OO.ui.ProcessDialog);
+	// OO.inheritClass(MyDialog, OO.ui.Dialog);
 
 	// Specify a name for .addWindows()
 	MyDialog.static.name = 'myDialog';
@@ -292,7 +425,7 @@ KnowledgeGraph = function () {
 			action: 'back',
 			label: 'Back',
 			flags: ['safe', 'back'],
-			modes: ['properties'],
+			modes: ['properties', 'no-properties', 'existing-node'],
 		},
 		{
 			flags: ['primary', 'progressive'],
@@ -303,7 +436,7 @@ KnowledgeGraph = function () {
 		{
 			flags: 'safe',
 			label: 'Cancel',
-			modes: ['select', 'properties', 'edit'],
+			modes: ['select', 'no-properties', 'properties', 'existing-node', 'edit'],
 		},
 		{
 			flags: ['primary', 'progressive'],
@@ -319,29 +452,6 @@ KnowledgeGraph = function () {
 		},
 	];
 
-	MyDialog.prototype.displayPropertiesSwitch = function (properties) {
-		ModelProperties = {};
-		var items = [];
-
-		for (var i in Properties) {
-			var toggleInput = new OO.ui.ToggleSwitchWidget({
-				value: true,
-			});
-
-			ModelProperties[i] = toggleInput;
-
-			var field = new OO.ui.FieldLayout(toggleInput, {
-				label: i,
-				help: '',
-				helpInline: true,
-				align: 'top',
-			});
-			items.push(field);
-		}
-
-		this.fieldset.addItems(items);
-	};
-
 	// Customize the initialize() function to add content and layouts:
 	MyDialog.prototype.initialize = function () {
 		MyDialog.super.prototype.initialize.call(this);
@@ -355,10 +465,10 @@ KnowledgeGraph = function () {
 
 		this.titleInputWidget = new mw.widgets.TitleInputWidget({
 			autocomplete: true,
-			//	suggestions: true,
-			//	addQueryInput: true,
+			// suggestions: true,
+			// addQueryInput: true,
 			// $overlay: true,
-			//	allowSuggestionsWhenEmpty: true,
+			// allowSuggestionsWhenEmpty: true,
 		});
 		var field = new OO.ui.FieldLayout(this.titleInputWidget, {
 			label: 'Select an article with semantic properties',
@@ -373,11 +483,13 @@ KnowledgeGraph = function () {
 			expanded: false,
 		});
 
-		this.fieldset = new OO.ui.FieldsetLayout({
-			label:
-				'toggle the properties that you would like to display on the network',
-		});
-		panelB.$element.append(this.fieldset.$element);
+		// this.fieldset = new OO.ui.FieldsetLayout({
+		// 	label:
+		// 		'toggle the properties that you would like to display on the network',
+		// });
+		// panelB.$element.append(this.fieldset.$element);
+
+		this.panelB = panelB;
 
 		this.stackLayout = new OO.ui.StackLayout({
 			items: [panelA, panelB],
@@ -395,25 +507,14 @@ KnowledgeGraph = function () {
 		// this.urlInput.connect(this, { change: "onUrlInputChange" });
 	};
 
-	// Specify any additional functionality required by the window (disable opening an empty URL, in this case)
-	// MyDialog.prototype.onUrlInputChange = function (value) {
-	// 	this.actions.setAbilities({
-	// 		open: !!value.length,
-	// 	});
-	// };
-
-	// Specify the dialog height (or don't to use the automatically generated height).
 	MyDialog.prototype.getBodyHeight = function () {
 		// Note that "expanded: false" must be set in the panel's configuration for this to work.
 		// When working with a stack layout, you can use:
 		//   return this.panels.getCurrentItem().$element.outerHeight( true );
 		//return this.stackLayout.getCurrentItem().$element.outerHeight(true);
-
 		return 200;
 	};
 
-	// Use getSetupProcess() to set up the window with data passed to it at the time
-	// of opening (e.g., url: 'http://www.mediawiki.org', in this example).
 	MyDialog.prototype.getSetupProcess = function (data) {
 		data = data || {};
 		return MyDialog.super.prototype.getSetupProcess
@@ -421,25 +522,69 @@ KnowledgeGraph = function () {
 			.next(function () {
 				if (data && data.nodeId) {
 					SelectedNode = data.nodeId;
-					this.initializePropertyPanel();
-					this.actions.setMode('edit');
+					var mode = 'edit';
+					this.initializePropertyPanel(mode);
+					this.actions.setMode(mode);
 				} else {
 					this.actions.setMode('select');
 				}
 			}, this);
 	};
 
-	MyDialog.prototype.initializePropertyPanel = function () {
-		this.displayPropertiesSwitch();
+	MyDialog.prototype.initializePropertyPanel = function (mode) {
+		// 	ModelProperties = {};
+		// 	var items = [];
+		// 	for (var i in Properties) {
+		// 		var toggleInput = new OO.ui.ToggleSwitchWidget({
+		// 			value: true,
+		// 		});
+		// 		ModelProperties[i] = toggleInput;
+		// 		var field = new OO.ui.FieldLayout(toggleInput, {
+		// 			label: i,
+		// 			help: '',
+		// 			helpInline: true,
+		// 			align: 'top',
+		// 		});
+		// 		items.push(field);
+		// 	}
+		// 	this.fieldset.addItems(items);
+
+		this.panelB.$element.empty();
+
+		if (mode === 'no-properties') {
+			$el = $('<span>No properties</span>');
+		} else if (mode === 'existing-node') {
+			$el = $('<span>Existing node</span>');
+		} else {
+			this.panelB.$element.append('<h3>Has properties:</h3>');
+			$el = $('<ul>');
+
+			for (var i in Properties) {
+				var url = mw.config.get('wgArticlePath').replace('$1', i);
+
+				$el.append(
+					$(
+						'<li><a target="_blank" href="' +
+							url +
+							'">' +
+							(Properties[i].preferredLabel !== ''
+								? Properties[i].preferredLabel
+								: Properties[i].canonicalLabel) +
+							'</a> (' +
+							Properties[i].typeLabel +
+							')' +
+							'</li>'
+					)
+				);
+			}
+		}
+		this.panelB.$element.append($el);
 		var panel = this.stackLayout.getItems()[1];
 		this.stackLayout.setItem(panel);
 	};
 
 	// Specify processes to handle the actions.
 	MyDialog.prototype.getActionProcess = function (action) {
-		// console.log('action', action);
-		// console.log('titleInputWidget', this.titleInputWidget.getValue());
-
 		var selfDialog = this;
 		switch (action) {
 			case 'delete':
@@ -461,14 +606,34 @@ KnowledgeGraph = function () {
 					.call(this, action)
 					.next(function () {
 						return new Promise((resolve, reject) => {
-							var title_ = selfDialog.titleInputWidget.getValue();
-							loadNodes(title_).then(function (data) {
-								Properties = data[Object.keys(data)[0]];
-								TmpData = data;
-								selfDialog.initializePropertyPanel();
-								selfDialog.actions.setMode('properties');
+							var titleValue = selfDialog.titleInputWidget.getValue();
+							var titleFullText = selfDialog.titleInputWidget
+								.getMWTitle()
+								.getPrefixedText();
+
+							if (titleFullText in Data) {
+								selfDialog.actions.setMode('existing-node');
+								selfDialog.initializePropertyPanel('existing-node');
 								resolve();
-							});
+								return;
+							}
+
+							if (titleValue !== '') {
+								loadNodes(titleValue).then(function (data) {
+									Properties = data[titleFullText];
+									TmpData = data;
+									var mode = Object.keys(Properties).length
+										? 'properties'
+										: 'no-properties';
+									selfDialog.initializePropertyPanel(mode);
+									selfDialog.actions.setMode(mode);
+									resolve();
+								});
+							} else {
+								reject();
+							}
+						}).catch((err) => {
+							console.log('err', err);
 						});
 					});
 				break;
@@ -482,18 +647,14 @@ KnowledgeGraph = function () {
 		return MyDialog.super.prototype.getActionProcess.call(this, action);
 
 		if (action === 'open') {
-			// Create a new process to handle the action
 			return new OO.ui.Process(function () {
 				window.open(this.urlInput.getValue());
 			}, this);
 		}
-		// Fallback to parent handler
+
 		return MyDialog.super.prototype.getActionProcess.call(this, action);
 	};
 
-	// Use the getTeardownProcess() method to perform actions whenever the dialog is closed.
-	// This method provides access to data passed into the window's close() method
-	// or the window manager's closeWindow() method.
 	MyDialog.prototype.getTeardownProcess = function (data) {
 		return MyDialog.super.prototype.getTeardownProcess
 			.call(this, data)
@@ -534,6 +695,12 @@ KnowledgeGraph = function () {
 				title: 'add node',
 				onSelect: onSelect,
 			},
+			{
+				name: 'show-config',
+				icon: 'settings',
+				title: 'show config',
+				onSelect: onSelect,
+			},
 			// {
 			// 	name: 'nodes-by-property',
 			// 	icon: 'add',
@@ -541,8 +708,14 @@ KnowledgeGraph = function () {
 			// 	onSelect: onSelect,
 			// },
 			{
+				name: 'reload',
+				icon: 'reload',
+				title: 'reload',
+				onSelect: onSelect,
+			},
+			{
 				name: 'export-graph',
-				icon: 'add',
+				icon: 'eye',
 				title: 'export graph',
 				onSelect: onSelect,
 			},
@@ -1089,3 +1262,4 @@ $(document).ready(async function () {
 		graph.initialize(this, config);
 	});
 });
+

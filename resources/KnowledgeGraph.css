@@ -1,3 +1,37 @@
 .KnowledgeGraph {
 	border: 1px solid #ccc;
 }
+
+.KnowledgeGraphPopupMenu {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	width: 160px;
+	border: 1px solid #ccc;
+	height: auto;
+	background: white;
+	box-shadow: 0px 2px 18px 0px rgba(0,0,0,0.12);
+}
+
+.KnowledgeGraphPopupMenu ul {
+	margin: 0;
+	padding: 0;
+	padding-right: 16px;
+}
+
+.KnowledgeGraphPopupMenu li {
+	width: 100%;
+	padding: 8px;
+	list-style: none;
+	cursor: pointer;
+	
+}
+.KnowledgeGraphPopupMenu li span {
+	margin-right: 8px;
+}
+
+.KnowledgeGraphPopupMenu li:hover {
+	background: #e8e8e9;
+	
+}
+
