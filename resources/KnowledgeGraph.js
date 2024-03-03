@@ -29,7 +29,7 @@ KnowledgeGraph = function () {
 		children.push(nodeId);
 
 		for (var nodeId of children) {
-			Edges.remove( Network.getConnectedEdges(nodeId));
+			Edges.remove(Network.getConnectedEdges(nodeId));
 		}
 		Nodes.remove(children);
 		for (var nodeId of children) {
@@ -312,7 +312,9 @@ KnowledgeGraph = function () {
 							label: 'open article',
 							icon: 'link',
 							onClick: function () {
-								var url = mw.config.get('wgArticlePath').replace('$1', nodeId);
+								var url = mw.config
+									.get('wgArticlePath')
+									.replace('$1', nodeId.substr(0, nodeId.indexOf('#')));
 								window.open(url, '_blank').focus();
 							},
 						},
@@ -1263,4 +1265,3 @@ $(document).ready(async function () {
 		graph.initialize(this, config);
 	});
 });
-
