@@ -212,7 +212,7 @@ KnowledgeGraph = function () {
 									label:
 										propValue.length <= maxPropValueLength
 											? propValue
-											: propValue.substr(0, maxPropValueLength) + '…',
+											: propValue.substring(0, maxPropValueLength) + '…',
 								}
 							)
 						);
@@ -341,9 +341,13 @@ KnowledgeGraph = function () {
 							label: 'open article',
 							icon: 'link',
 							onClick: function () {
+								var hashIndex = nodeId.indexOf('#');
 								var url = mw.config
 									.get('wgArticlePath')
-									.replace('$1', nodeId.substr(0, nodeId.indexOf('#')));
+									.replace(
+										'$1',
+										hashIndex !== -1 ? nodeId.substring(0, hashIndex) : nodeId
+									);
 								window.open(url, '_blank').focus();
 							},
 						},
@@ -1380,3 +1384,4 @@ $(document).ready(async function () {
 		graph.initialize(container, containerToolbar, containerOptions, config);
 	});
 });
+
