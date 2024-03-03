@@ -372,7 +372,7 @@ KnowledgeGraph = function () {
 
 			if (!(nodeId in Data) || Data[nodeId] === null) {
 				loadNodes(params.nodes[0]).then(function (data) {
-					console.log('data', data);
+					// console.log('data', data);
 					createNodes(data);
 					Nodes.update([
 						{
