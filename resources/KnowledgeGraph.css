@@ -31,7 +31,9 @@
 }
 
 .KnowledgeGraphPopupMenu li:hover {
-	background: #e8e8e9;
-	
+	background: #e8e8e9;	
 }
 
+.KnowledgeGraphTable .vis-configuration-wrapper {
+	width: auto;
+}

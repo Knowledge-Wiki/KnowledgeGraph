@@ -273,23 +273,7 @@ KnowledgeGraph = function () {
 		return obj !== null && typeof obj === 'object' && !Array.isArray(obj);
 	}
 
-	function initialize(container, containerToolbar, containerOptions, config) {
-		console.log('config', config);
-
-		InitialData = JSON.parse(JSON.stringify(config.data));
-		Config = config;
-		Container = container;
-		ContainerOptions = containerOptions;
-
-		$(container).width(config.width);
-		$(container).height(config.width);
-
-		if (config['show-toolbar']) {
-			var toolbar = createToolbar();
-			// toolbar.$element.insertBefore(container);
-			toolbar.$element.appendTo(containerToolbar);
-		}
-
+	function initializeNetwork(data) {
 		Data = {};
 		Nodes = new vis.DataSet([]);
 		Edges = new vis.DataSet([]);
@@ -300,12 +284,7 @@ KnowledgeGraph = function () {
 			Config.graphOptions
 		);
 
-		if (config['show-toolbar']) {
-			Config.graphOptions.configure.enabled = false;
-			$(ContainerOptions).toggle(false);
-		}
-
-		createNodes(Config.data);
+		createNodes(data);
 
 		Network.on('oncontext', function (params) {
 			params.event.preventDefault();
@@ -317,8 +296,7 @@ KnowledgeGraph = function () {
 
 				var menuObj = {
 					items: [
-						{
-							// mw.msg
+						{		// mw.msg
 							label: 'open article',
 							icon: 'link',
 							onClick: function () {
@@ -328,23 +306,20 @@ KnowledgeGraph = function () {
 								window.open(url, '_blank').focus();
 							},
 						},
+						{
+						// mw.msg
+							label: 'delete node',
+							icon: 'trash',
+							onClick: function () {
+							// mw.msg
+								if (confirm('Are you sure you want to delete this node ?')) {
+									deleteNode(nodeId);
+								}
+							},
+						},
 					],
 					className: 'KnowledgeGraphPopupMenu',
 				};
-
-				if (Config['show-toolbar'] === true) {
-					menuObj.items.push({
-						// mw.msg
-						label: 'delete node',
-						icon: 'trash',
-						onClick: function () {
-							// mw.msg
-							if (confirm('Are you sure you want to delete this node ?')) {
-								deleteNode(nodeId);
-							}
-						},
-					});
-				}
 
 				PopupMenu = new ContextMenu(menuObj);
 				PopupMenu.showAt(params.event.pageX, params.event.pageY);
@@ -403,6 +378,26 @@ KnowledgeGraph = function () {
 				});
 			}
 		});
+	}
+
+	function initialize(container, containerToolbar, containerOptions, config) {
+		console.log('config', config);
+
+		InitialData = JSON.parse(JSON.stringify(config.data));
+		Config = config;
+		Container = container;
+		ContainerOptions = containerOptions;
+
+		$(container).width(config.width);
+		$(container).height(config.width);
+
+		if (config['show-toolbar']) {
+			var toolbar = createToolbar();
+			// toolbar.$element.insertBefore(container);
+			toolbar.$element.appendTo(containerToolbar);
+		}
+
+		initializeNetwork(Config.data);
 	}
 
 	function openDialog(nodeId) {
@@ -495,7 +490,7 @@ KnowledgeGraph = function () {
 			// allowSuggestionsWhenEmpty: true,
 		});
 		var field = new OO.ui.FieldLayout(this.titleInputWidget, {
-			// mw.msg
+		// mw.msg
 			label: 'Select an article with semantic properties',
 			align: 'top',
 		});
@@ -577,13 +572,13 @@ KnowledgeGraph = function () {
 		this.panelB.$element.empty();
 
 		if (mode === 'no-properties') {
-			// mw.msg
+		// mw.msg
 			$el = $('<span>No properties</span>');
 		} else if (mode === 'existing-node') {
-			// mw.msg
+		// mw.msg
 			$el = $('<span>Existing node</span>');
 		} else {
-			// mw.msg
+		// mw.msg
 			this.panelB.$element.append('<h3>Has properties:</h3>');
 			$el = $('<ul>');
 
@@ -616,7 +611,7 @@ KnowledgeGraph = function () {
 		var selfDialog = this;
 		switch (action) {
 			case 'delete':
-				// mw.msg
+			// mw.msg
 				if (confirm('Are you sure you want to delete this node ?')) {
 					deleteNode(SelectedNode);
 					return new OO.ui.Process(function () {
@@ -720,18 +715,10 @@ KnowledgeGraph = function () {
 					break;
 
 				case 'reload':
-					// mw.msg
+				// mw.msg
 					if (confirm('Are you sure you want to reinitialize the Network ?')) {
-						Data = {};
-						Nodes = new vis.DataSet([]);
-						Edges = new vis.DataSet([]);
-
-						Network.setData({ nodes: Nodes, edges: Edges });
-
-						createNodes(InitialData);
-
-						// Network.destroy();
-						// initializeNetwork(InitialData);
+						Network.destroy();
+						initializeNetwork(InitialData);
 					}
 			}
 
@@ -1314,50 +1301,54 @@ $(document).ready(async function () {
 			graphData.graphOptions.height = config.height;
 		}
 
-		var container = this;
-		var containerToolbar = null;
-		var containerOptions = null;
-
 		if (!graphData.graphOptions.configure.container) {
 			if (config['show-toolbar']) {
 				var $container = $(this).clone();
 
-				$table = $(
-					`
-<div class="KnowledgeGraphTable" style="display:table" style="height:` +
-						config.height +
-						`">
-	<div style="display:table-row" class="KnowledgeGraph-toolbar">
-	
-	</div>
+				$table_ = $(`
+<div style="display:table">
 	<div style="display:table-row">
 		<div class="KnowledgeGraph-network" style="display:table-cell;width:50%;vertical-align:top"></div>
-		<div class="KnowledgeGraph-options" style="display:table-cell;width:50%"><div style="width:auto;height:` +
-						config.height +
-						`;overflow:scroll"></div></div>
+		<div class="KnowledgeGraph-options" style="display:table-cell;width:50%"><div style="width:auto;height:` + config.height + `"></div></div>
 	</div>
-</div>`
+</div>`);
+
+				$table = $(
+					`
+<table class="KnowledgeGraphTable" style="height:` +
+						config.height +
+						`">
+	<tr >
+		<td class="KnowledgeGraph-toolbar" style="width:50%"></div>
+	</tr>
+	<tr >
+		<td class="KnowledgeGraph-network" style="width:50%;vertical-align:top"></div>
+		<td style="width:50%" class="KnowledgeGraph-options" ><div style="width:auto;height:` + config.height + `;overflow:scroll"></div></div>
+	</tr>
+</table>`
 				);
 
 				$table.find('.KnowledgeGraph-network').append($container);
+				graphData.graphOptions.configure.enabled = true;
 				graphData.graphOptions.configure.container = $table
 					.find('.KnowledgeGraph-options > div')
 					.get(0);
 
+				//	$(container).appendTo($table.find('.KnowledgeGraph-options:first'));
 				$(this).replaceWith($table);
-
-				container = $container.get(0);
-				containerToolbar = $table.find('.KnowledgeGraph-toolbar').get(0);
-				containerOptions = $table.find('.KnowledgeGraph-options').get(0);
-
-				graphData.graphOptions.configure.enabled = true;
 			} else {
+				$container = $(container);
 				graphData.graphOptions.configure.enabled = false;
 			}
 		} else {
-			containerOptions = graphData.graphOptions.configure.container;
+			$container = $(graphData.graphOptions.configure.container);
 		}
 
-		graph.initialize(container, containerToolbar, containerOptions, config);
+		graph.initialize(
+			$container.get(0),
+			$table.find('.KnowledgeGraph-toolbar').get(0),
+			$table.find('.KnowledgeGraph-options').get(0),
+			config
+		);
 	});
 });

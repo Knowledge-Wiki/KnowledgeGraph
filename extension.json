@@ -4,7 +4,7 @@
     "version":"0.1",
     "author": "Thomas-topway-it for KM-A",
     "url":"https://github.com/SemanticMediaWiki/KnowledgeGraph",
-    "descriptionmsg":"knowledge-graph-desc",
+    "descriptionmsg": "knowledge-graph-desc",
     "namemsg":"knowledge-graph-name",
     "license-name":"AGPL-3.0-or-later",
     "type":"editor",
