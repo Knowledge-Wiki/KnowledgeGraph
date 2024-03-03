@@ -750,7 +750,7 @@ KnowledgeGraph = function () {
 				name: 'show-config',
 				icon: 'settings',
 				// mw.msg
-				title: 'show config',
+				title: 'toggle config',
 				onSelect: onSelect,
 			},
 			// {
