@@ -123,7 +123,9 @@ KnowledgeGraph = function () {
 			label in Config.propertyOptions ? Config.propertyOptions[label] : {},
 			{
 				id: label,
-				label: label,
+				label: label.length <= maxPropValueLength
+					? label
+					: label.substring(0, maxPropValueLength) + '…',
 				shape: 'box',
 				font: { size: 30 },
 
