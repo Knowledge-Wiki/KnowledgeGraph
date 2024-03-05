@@ -752,8 +752,10 @@ KnowledgeGraph = function () {
 			case 'done':
 				return new OO.ui.Process(function () {
 					selfDialog.close({ action: action }).then(function () {
-						createNodes(TmpData);
+						// createNodes(TmpData);
 					});
+					createNodes(TmpData);
+					TmpData = {};
 				});
 			case 'continue':
 				return MyDialog.super.prototype.getActionProcess
