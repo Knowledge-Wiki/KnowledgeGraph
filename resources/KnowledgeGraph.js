@@ -123,9 +123,10 @@ KnowledgeGraph = function () {
 			label in Config.propertyOptions ? Config.propertyOptions[label] : {},
 			{
 				id: label,
-				label: label.length <= maxPropValueLength
-					? label
-					: label.substring(0, maxPropValueLength) + '…',
+				label:
+					label.length <= maxPropValueLength
+						? label
+						: label.substring(0, maxPropValueLength) + '…',
 				shape: 'box',
 				font: { size: 30 },
 
@@ -712,7 +713,7 @@ KnowledgeGraph = function () {
 					// mw.msg
 					this.panelB.$element.append('<h3>Importing nodes:</h3>');
 					// @TODO display a message if all nodes exist
-					
+
 					for (var i in data) {
 						if (!(i in Data)) {
 							var url = mw.config.get('wgArticlePath').replace('$1', i);
@@ -750,8 +751,9 @@ KnowledgeGraph = function () {
 				break;
 			case 'done':
 				return new OO.ui.Process(function () {
-					selfDialog.close({ action: action });
-					createNodes(TmpData);
+					selfDialog.close({ action: action }).then(function () {
+						createNodes(TmpData);
+					});
 				});
 			case 'continue':
 				return MyDialog.super.prototype.getActionProcess
