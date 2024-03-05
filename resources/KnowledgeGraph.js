@@ -1448,10 +1448,16 @@ $(document).ready(async function () {
 			}
 		}
 
+		graphData.graphOptions = $.extend(
+			new KnowledgeGraph().getDefaultOptions(),
+			graphData.graphOptions
+		);
+
 		var config = $.extend(
+			true,
 			{
 				data: {},
-				graphOptions: new KnowledgeGraph().getDefaultOptions(),
+				// graphOptions: new KnowledgeGraph().getDefaultOptions(),
 				propertyOptions: {},
 				'only-properties': [],
 				'nodes-by-properties': {},
