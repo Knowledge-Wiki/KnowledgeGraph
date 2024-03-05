@@ -1472,17 +1472,17 @@ $(document).ready(async function () {
 		);
 
 		if (config.width !== '') {
-			graphData.graphOptions.width = config.width;
+			config.graphOptions.width = config.width;
 		}
 		if (config.height !== '') {
-			graphData.graphOptions.height = config.height;
+			config.graphOptions.height = config.height;
 		}
 
 		var container = this;
 		var containerToolbar = null;
 		var containerOptions = null;
 
-		if (!graphData.graphOptions.configure.container) {
+		if (!config.graphOptions.configure.container) {
 			if (config['show-toolbar']) {
 				var $container = $(this).clone();
 
@@ -1504,7 +1504,7 @@ $(document).ready(async function () {
 				);
 
 				$table.find('.KnowledgeGraph-network').append($container);
-				graphData.graphOptions.configure.container = $table
+				config.graphOptions.configure.container = $table
 					.find('.KnowledgeGraph-options > div')
 					.get(0);
 
@@ -1514,12 +1514,12 @@ $(document).ready(async function () {
 				containerToolbar = $table.find('.KnowledgeGraph-toolbar').get(0);
 				containerOptions = $table.find('.KnowledgeGraph-options').get(0);
 
-				graphData.graphOptions.configure.enabled = true;
+				config.graphOptions.configure.enabled = true;
 			} else {
-				graphData.graphOptions.configure.enabled = false;
+				config.graphOptions.configure.enabled = false;
 			}
 		} else {
-			containerOptions = graphData.graphOptions.configure.container;
+			containerOptions = config.graphOptions.configure.container;
 		}
 
 		graph.initialize(container, containerToolbar, containerOptions, config);
