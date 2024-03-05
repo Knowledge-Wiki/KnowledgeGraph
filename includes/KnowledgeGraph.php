@@ -8,6 +8,8 @@
  */
 
 use MediaWiki\Revision\SlotRecord;
+use SMW\MediaWiki\Specials\SearchByProperty\PageRequestOptions;
+use SMW\MediaWiki\Specials\SearchByProperty\QueryResultLookup;
 
 class KnowledgeGraph {
 	protected static $SMWOptions = null;
@@ -125,6 +127,24 @@ class KnowledgeGraph {
 	}
 
 	/**
+	 * @param Skin $skin
+	 * @param array &$sidebar
+	 * @return void
+	 */
+	public static function onSidebarBeforeOutput( $skin, &$sidebar ) {
+		if ( !empty( $GLOBALS['wgKnowledgeGraphDisableSidebarLink'] ) ) {
+			return;
+		}
+		$title = $skin->getTitle();
+		$specialpage_title = SpecialPage::getTitleFor( 'KnowledgeGraphDesigner' );
+
+		$sidebar['TOOLBOX'][] = [
+			'text'   => wfMessage( 'knowledgegraph-knowledgegraphdesigner-label' )->text(),
+			'href'   => $specialpage_title->getLocalURL()
+		];
+	}
+
+	/**
 	 * @see https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/extensions/PageProperties/+/c997fbd2583ccc088dc232288f883716ca2f5777/includes/PageProperties.php
 	 * @param Parser $parser
 	 * @param mixed ...$argv
@@ -154,13 +174,13 @@ nodes=TestPage
 			// 'autoexpand' => [ 'false', 'boolean' ],
 			'depth' => [ '3', 'integer' ],
 			'graph-options' => [ '', 'string' ],
-			// 'node-options' => [ '', 'string' ],
-			// 'edge-options' => [ '', 'string' ],
 			'width' => [ '400px', 'string' ],
 			'height' => [ '400px', 'string' ],
 			'show-toolbar' => [ 'false', 'boolean' ],
 			'show-property-type' => [ 'false', 'boolean' ],
 		];
+
+		self::initSMW();
 
 		[ $values, $params ] = self::parseParameters( $argv, array_keys( $defaultParameters ) );
 
@@ -173,8 +193,6 @@ nodes=TestPage
 				$propertyOptions[$match[2]] = $match[3];
 			}
 		}
-
-		self::initSMW();
 
 		foreach ( $params['nodes'] as $titleText ) {
 			$title_ = Title::newFromText( $titleText );
@@ -219,6 +237,39 @@ nodes=TestPage
 			'noparse' => true,
 			'isHTML' => true
 		];
+	}
+
+	/**
+	 * @param string $propertyText
+	 * @return array
+	 */
+	public static function getSubjectsByProperty( $propertyText ) {
+		$limit = 500;
+		$offset = 0;
+
+		$requestOptions = [
+			'limit'    => $limit,
+			'offset'   => $offset,
+			// 'property' => $this->getRequest()->getVal( 'property' ),
+			'property' => $propertyText,
+			'value'    => null,
+			// 'nearbySearchForType' => $applicationFactory->getSettings()->get( 'smwgSearchByPropertyFuzzy' )
+		];
+
+		$pageRequestOptions = new PageRequestOptions( '', $requestOptions );
+		$pageRequestOptions->initialize();
+
+		// @TODO use destructureDIContainer from QueryResultLookup
+		$DIProperty = $pageRequestOptions->property->getDataItem();
+		$results = self::$SMWStore->getPropertySubjects( $DIProperty, null );
+		$ret = [];
+		foreach ( $results as $result ) {
+			$title_ = $result->getTitle();
+			if ( $title_ && $title_->isKnown() ) {
+				$ret[] = $title_;
+			}
+		}
+		return $ret;
 	}
 
 	/**

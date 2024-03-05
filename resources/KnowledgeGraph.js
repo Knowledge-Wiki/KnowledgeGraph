@@ -39,19 +39,27 @@ KnowledgeGraph = function () {
 		}
 	}
 
-	function loadNodes(value) {
-		var payload = {
-			titles: value,
-			depth: Config.depth,
-			'only-properties': JSON.stringify(Config['only-properties']),
-			action: 'knowledgegraph-load-nodes',
-		};
+	function loadNodes(obj) {
+		if (obj.title !== null) {
+			var payload = {
+				titles: obj.title,
+				depth: Config.depth,
+				'only-properties': JSON.stringify(Config['only-properties']),
+				action: 'knowledgegraph-load-nodes',
+			};
+		} else {
+			var payload = {
+				properties: obj.properties.join('|'),
+				action: 'knowledgegraph-load-properties',
+			};
+		}
+
 		return new Promise((resolve, reject) => {
 			mw.loader.using('mediawiki.api', function () {
 				new mw.Api()
 					.postWithToken('csrf', payload)
 					.done(function (thisRes) {
-						// console.log('thisRes', thisRes);
+						console.log('thisRes', thisRes);
 						if ('data' in thisRes[payload.action]) {
 							var data_ = JSON.parse(thisRes[payload.action].data);
 							resolve(data_);
@@ -411,7 +419,7 @@ KnowledgeGraph = function () {
 			var nodeId = params.nodes[0];
 
 			if (!(nodeId in Data) || Data[nodeId] === null) {
-				loadNodes(params.nodes[0]).then(function (data) {
+				loadNodes({ title: params.nodes[0] }).then(function (data) {
 					// console.log('data', data);
 					createNodes(data);
 					Nodes.update([
@@ -468,20 +476,20 @@ KnowledgeGraph = function () {
 			// mw.msg
 			label: 'Back',
 			flags: ['safe', 'back'],
-			modes: ['properties', 'no-properties', 'existing-node'],
+			modes: ['show-results', 'no-results', 'existing-node'],
 		},
 		{
 			flags: ['primary', 'progressive'],
 			// mw.msg
 			label: 'Done',
 			action: 'done',
-			modes: ['properties'],
+			modes: ['show-results'],
 		},
 		{
 			flags: 'safe',
 			// mw.msg
 			label: 'Cancel',
-			modes: ['select', 'no-properties', 'properties', 'existing-node', 'edit'],
+			modes: ['select', 'no-results', 'show-results', 'existing-node', 'edit'],
 		},
 		{
 			flags: ['primary', 'progressive'],
@@ -503,28 +511,87 @@ KnowledgeGraph = function () {
 	MyDialog.prototype.initialize = function () {
 		MyDialog.super.prototype.initialize.call(this);
 
+		var self = this;
+
 		var panelA = new OO.ui.PanelLayout({
 			padded: true,
-			expanded: false,
+			expanded: true,
 		});
 
-		var content = new OO.ui.FieldsetLayout();
-
-		this.titleInputWidget = new mw.widgets.TitleInputWidget({
-			autocomplete: true,
-			// suggestions: true,
-			// addQueryInput: true,
-			// $overlay: true,
-			// allowSuggestionsWhenEmpty: true,
+		var indexLayout = new OO.ui.IndexLayout({
+			framed: true,
+			showMenu: false,
+			expanded: true,
+			padded: false,
+			autoFocus: false,
 		});
-		var field = new OO.ui.FieldLayout(this.titleInputWidget, {
+
+		function TabPanelOneLayout(name, config) {
+			TabPanelOneLayout.super.call(this, name, config);
+
+			var fieldsetLayout = new OO.ui.FieldsetLayout();
+
+			self.titleInputWidget = new mw.widgets.TitleInputWidget({
+				autocomplete: true,
+				// suggestions: true,
+				// addQueryInput: true,
+				// $overlay: true,
+				// allowSuggestionsWhenEmpty: true,
+			});
+			var field = new OO.ui.FieldLayout(self.titleInputWidget, {
+				// mw.msg
+				label: 'Select an article with semantic properties',
+				align: 'top',
+			});
+
+			fieldsetLayout.addItems([field]);
+
+			this.$element.append(fieldsetLayout.$element);
+		}
+		OO.inheritClass(TabPanelOneLayout, OO.ui.TabPanelLayout);
+		TabPanelOneLayout.prototype.setupTabItem = function () {
 			// mw.msg
-			label: 'Select an article with semantic properties',
-			align: 'top',
-		});
+			this.tabItem.setLabel('By article');
+		};
 
-		content.addItems([field]);
-		panelA.$element.append(content.$element);
+		function TabPanelTwoLayout(name, config) {
+			TabPanelTwoLayout.super.call(this, name, config);
+			var fieldsetLayout = new OO.ui.FieldsetLayout();
+
+			self.propertiesInputWidget = new mw.widgets.TitlesMultiselectWidget({
+				autocomplete: true,
+				namespace: 102,
+				// suggestions: true,
+				// addQueryInput: true,
+				// $overlay: true,
+				// allowSuggestionsWhenEmpty: true,
+			});
+			var field = new OO.ui.FieldLayout(self.propertiesInputWidget, {
+				// mw.msg
+				label: 'Select one or more properties',
+				align: 'top',
+				// helpInline: true,
+				// help: 'Type an article title in the "MediaWiki" namespace',
+			});
+
+			fieldsetLayout.addItems([field]);
+
+			this.$element.append(fieldsetLayout.$element);
+		}
+		OO.inheritClass(TabPanelTwoLayout, OO.ui.TabPanelLayout);
+		TabPanelTwoLayout.prototype.setupTabItem = function () {
+			// mw.msg
+			this.tabItem.setLabel('By properties');
+		};
+
+		var tabPanel1 = new TabPanelOneLayout('by-article'),
+			tabPanel2 = new TabPanelTwoLayout('by-properties');
+
+		indexLayout.addTabPanels([tabPanel1, tabPanel2]);
+
+		this.indexLayout = indexLayout;
+
+		panelA.$element.append(indexLayout.$element);
 
 		var panelB = new OO.ui.PanelLayout({
 			padded: true,
@@ -571,7 +638,7 @@ KnowledgeGraph = function () {
 				if (data && data.nodeId) {
 					SelectedNode = data.nodeId;
 					var mode = 'edit';
-					this.initializePropertyPanel(mode);
+					this.initializeResultsPanel(mode);
 					this.actions.setMode(mode);
 				} else {
 					this.actions.setMode('select');
@@ -579,7 +646,12 @@ KnowledgeGraph = function () {
 			}, this);
 	};
 
-	MyDialog.prototype.initializePropertyPanel = function (mode) {
+	MyDialog.prototype.initializeResultsPanel = function (
+		mode,
+		selectedTab,
+		data,
+		titleFullText
+	) {
 		// 	ModelProperties = {};
 		// 	var items = [];
 		// 	for (var i in Properties) {
@@ -599,34 +671,59 @@ KnowledgeGraph = function () {
 
 		this.panelB.$element.empty();
 
-		if (mode === 'no-properties') {
+		if (mode === 'no-results') {
 			// mw.msg
-			$el = $('<span>No properties</span>');
+			var msg = selectedTab === 'by-article' ? 'No properties' : 'No articles';
+
+			$el = $('<span>' + msg + '</span>');
 		} else if (mode === 'existing-node') {
 			// mw.msg
 			$el = $('<span>Existing node</span>');
 		} else {
-			// mw.msg
-			this.panelB.$element.append('<h3>Has properties:</h3>');
 			$el = $('<ul>');
+			switch (selectedTab) {
+				case 'by-article':
+					// mw.msg
+					this.panelB.$element.append('<h3>Has properties:</h3>');
+					var properties = data[titleFullText];
+					for (var i in properties) {
+						var url = mw.config.get('wgArticlePath').replace('$1', i);
 
-			for (var i in Properties) {
-				var url = mw.config.get('wgArticlePath').replace('$1', i);
+						$el.append(
+							$(
+								'<li><a target="_blank" href="' +
+									url +
+									'">' +
+									(properties[i].preferredLabel !== ''
+										? properties[i].preferredLabel
+										: properties[i].canonicalLabel) +
+									'</a> (' +
+									properties[i].typeLabel +
+									')' +
+									'</li>'
+							)
+						);
+					}
+					break;
 
-				$el.append(
-					$(
-						'<li><a target="_blank" href="' +
-							url +
-							'">' +
-							(Properties[i].preferredLabel !== ''
-								? Properties[i].preferredLabel
-								: Properties[i].canonicalLabel) +
-							'</a> (' +
-							Properties[i].typeLabel +
-							')' +
-							'</li>'
-					)
-				);
+				case 'by-properties':
+					// mw.msg
+					this.panelB.$element.append('<h3>Importing nodes:</h3>');
+					for (var i in data) {
+						if (!(i in Data)) {
+							var url = mw.config.get('wgArticlePath').replace('$1', i);
+
+							$el.append(
+								$(
+									'<li><a target="_blank" href="' +
+										url +
+										'">' +
+										i +
+										'</a> </li>'
+								)
+							);
+						}
+					}
 			}
 		}
 		this.panelB.$element.append($el);
@@ -658,32 +755,62 @@ KnowledgeGraph = function () {
 					.call(this, action)
 					.next(function () {
 						return new Promise((resolve, reject) => {
-							var titleValue = selfDialog.titleInputWidget.getValue();
-							var titleFullText = selfDialog.titleInputWidget
-								.getMWTitle()
-								.getPrefixedText();
+							var selectedTab = selfDialog.indexLayout.getCurrentTabPanelName();
+							var titleValue = null;
+							var properties = null;
 
-							if (titleFullText in Data) {
-								selfDialog.actions.setMode('existing-node');
-								selfDialog.initializePropertyPanel('existing-node');
-								resolve();
-								return;
+							switch (selectedTab) {
+								case 'by-article':
+									titleValue = selfDialog.titleInputWidget.getValue();
+									var titleFullText = selfDialog.titleInputWidget
+										.getMWTitle()
+										.getPrefixedText();
+
+									if (titleFullText in Data) {
+										selfDialog.actions.setMode('existing-node');
+										selfDialog.initializeResultsPanel('existing-node');
+										resolve();
+										return;
+									}
+
+									if (titleValue === '') {
+										reject();
+									}
+
+									break;
+
+								case 'by-properties':
+									properties = selfDialog.propertiesInputWidget.getValue();
+
+									if (!properties.length) {
+										reject();
+									}
 							}
 
-							if (titleValue !== '') {
-								loadNodes(titleValue).then(function (data) {
-									Properties = data[titleFullText];
+							loadNodes({ title: titleValue, properties }).then(
+								function (data) {
+									// Properties = data[titleFullText];
 									TmpData = data;
-									var mode = Object.keys(Properties).length
-										? 'properties'
-										: 'no-properties';
-									selfDialog.initializePropertyPanel(mode);
+									if (selectedTab === 'by-article') {
+										var properties = data[titleFullText];
+										var mode = Object.keys(properties).length
+											? 'show-results'
+											: 'no-results';
+									} else {
+										var mode = Object.keys(data).length
+											? 'show-results'
+											: 'no-results';
+									}
+									selfDialog.initializeResultsPanel(
+										mode,
+										selectedTab,
+										data,
+										selectedTab === 'by-article' ? titleFullText : null
+									);
 									selfDialog.actions.setMode(mode);
 									resolve();
-								});
-							} else {
-								reject();
-							}
+								}
+							);
 						}).catch((err) => {
 							console.log('err', err);
 						});
@@ -783,13 +910,6 @@ KnowledgeGraph = function () {
 			// 	onSelect: onSelect,
 			// },
 			{
-				name: 'reload',
-				icon: 'reload',
-				// mw.msg
-				title: 'reload',
-				onSelect: onSelect,
-			},
-			{
 				name: 'export-graph',
 				icon: 'eye',
 				// mw.msg
@@ -797,6 +917,18 @@ KnowledgeGraph = function () {
 				onSelect: onSelect,
 			},
 		];
+
+		// if (Config.context === 'parserfunction') {
+		if (true) {
+			toolGroup.splice(2, 0, {
+				name: 'reload',
+				icon: 'reload',
+				// mw.msg
+				title: 'reset',
+				onSelect: onSelect,
+			});
+		}
+
 		createToolGroup(toolFactory, 'group', toolGroup);
 
 		toolbar.setup([
@@ -1282,6 +1414,8 @@ KnowledgeGraph = function () {
 $(document).ready(async function () {
 	var semanticGraphs = JSON.parse(mw.config.get('knowledgegraphs'));
 
+	console.log('semanticGraphs', semanticGraphs);
+
 	async function getModule(str) {
 		var module = await import(`data:text/javascript;base64,${btoa(str)}`);
 		if ('default' in module) {
@@ -1326,6 +1460,7 @@ $(document).ready(async function () {
 				height: '',
 				'show-toolbar': false,
 				'show-property-type': false,
+				context: 'parserfunction',
 			},
 			graphData
 		);

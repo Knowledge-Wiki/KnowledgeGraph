@@ -1,13 +1,12 @@
 {
     "manifest_version":2,
     "name":"KnowledgeGraph",
-    "version":"0.1",
+    "version":"1.0",
     "author": "Thomas-topway-it for KM-A",
     "url":"https://github.com/SemanticMediaWiki/KnowledgeGraph",
     "descriptionmsg": "knowledge-graph-desc",
     "namemsg":"knowledge-graph-name",
     "license-name":"AGPL-3.0-or-later",
-    "type":"editor",
     "requires":{
         "MediaWiki":">= 1.31"
     },
@@ -21,11 +20,24 @@
 	},
     "AutoloadClasses":{
         "KnowledgeGraph":"includes/KnowledgeGraph.php",
-        "KnowledgeGraphApiLoadNodes": "includes/api/KnowledgeGraphApiLoadNodes.php"
+        "SpecialKnowledgeGraphDesigner":"includes/specials/SpecialKnowledgeGraphDesigner.php",
+        "KnowledgeGraphApiLoadNodes": "includes/api/KnowledgeGraphApiLoadNodes.php",
+        "KnowledgeGraphApiLoadProperties": "includes/api/KnowledgeGraphApiLoadProperties.php"
 	},
 	"APIModules": {
-		"knowledgegraph-load-nodes": "KnowledgeGraphApiLoadNodes"
+		"knowledgegraph-load-nodes": "KnowledgeGraphApiLoadNodes",
+		"knowledgegraph-load-properties": "KnowledgeGraphApiLoadProperties"
 	},
+	"SpecialPages": {
+		"KnowledgeGraphDesigner": "SpecialKnowledgeGraphDesigner"
+	},
+    "Hooks":{
+		"LoadExtensionSchemaUpdates": "KnowledgeGraph::onLoadExtensionSchemaUpdates",
+		"BeforePageDisplay":"KnowledgeGraph::onBeforePageDisplay",
+		"ParserFirstCallInit": "KnowledgeGraph::onParserFirstCallInit",
+		"OutputPageParserOutput": "KnowledgeGraph::onOutputPageParserOutput",
+		"SidebarBeforeOutput": "KnowledgeGraph::onSidebarBeforeOutput"
+    },
 	"ResourceModules":{
         "ext.KnowledgeGraph":{
             "localBasePath":"resources",
@@ -46,6 +58,7 @@
 				"oojs-ui-toolbars",
 				"oojs-ui-windows",
 				"mediawiki.widgets",
+				"mediawiki.widgets.TitlesMultiselectWidget",
 				"oojs-ui.styles.icons-moderation",
 				"oojs-ui.styles.icons-editing-core",
 				"oojs-ui.styles.icons-interactions",
@@ -53,11 +66,5 @@
             ],
             "position":"top"
         }
-    },
-    "Hooks":{
-		"LoadExtensionSchemaUpdates": "KnowledgeGraph::onLoadExtensionSchemaUpdates",
-		"BeforePageDisplay":"KnowledgeGraph::onBeforePageDisplay",
-		"ParserFirstCallInit": "KnowledgeGraph::onParserFirstCallInit",
-		"OutputPageParserOutput": "KnowledgeGraph::onOutputPageParserOutput"
     }
 }

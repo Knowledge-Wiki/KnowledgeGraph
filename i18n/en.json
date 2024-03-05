@@ -8,7 +8,12 @@
 	
 	"apihelp-knowledgegraph-load-nodes-summary": "retrieve semantic properties of given articles",
 	"apihelp-knowledgegraph-load-nodes-example-1": "",
-	"apihelp-knowledgegraph-load-nodes-param-pageids": ""
+	"apihelp-knowledgegraph-load-nodes-param-pageids": "",
+	
+	"specialpages-group-knowledgegraph": "KnowledgeGraph",
+	"knowledgegraphdesigner": "KnowledgeGraph Designer",
+	
+	"knowledgegraph-knowledgegraphdesigner-label": "KnowledgeGraph Designer "
 	
 
 }
