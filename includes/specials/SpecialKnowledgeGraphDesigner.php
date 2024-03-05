@@ -45,7 +45,7 @@ class SpecialKnowledgeGraphDesigner extends SpecialPage {
 
 		$graphOptions = [];
 		if ( $title_ && $title_->isKnown() ) {
-			//$graphOptions = \KnowledgeGraph::getWikipageContent( $title_ );
+			$graphOptions = \KnowledgeGraph::getWikipageContent( $title_ );
 		}
 		$propertyOptions = [];
 
