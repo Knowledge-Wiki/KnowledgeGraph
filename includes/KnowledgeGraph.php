@@ -261,7 +261,10 @@ nodes=TestPage
 
 		// @TODO use destructureDIContainer from QueryResultLookup
 		$DIProperty = $pageRequestOptions->property->getDataItem();
-		$results = self::$SMWStore->getPropertySubjects( $DIProperty, null );
+		$requestOptions = new \SMWRequestOptions();
+		$requestOptions->limit = 500;
+
+		$results = self::$SMWStore->getPropertySubjects( $DIProperty, null, $requestOptions );
 		$ret = [];
 		foreach ( $results as $result ) {
 			$title_ = $result->getTitle();

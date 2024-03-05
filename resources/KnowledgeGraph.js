@@ -711,6 +711,8 @@ KnowledgeGraph = function () {
 				case 'by-properties':
 					// mw.msg
 					this.panelB.$element.append('<h3>Importing nodes:</h3>');
+					// @TODO display a message if all nodes exist
+					
 					for (var i in data) {
 						if (!(i in Data)) {
 							var url = mw.config.get('wgArticlePath').replace('$1', i);
