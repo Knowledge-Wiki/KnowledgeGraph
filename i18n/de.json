@@ -1,7 +1,19 @@
 {
 	"@metadata": {
-	}
+	},
+
+	"knowledge-graph-name": "KnowledgeGraph",
+	"knowledge-graph-desc": "Stellt Daten in Semantic MediaWiki mittels VisNetwork.js dar.",
+	"knowledge-graph-wrapper-loading": "Wissensgraph lädt...",
 	
+	"apihelp-knowledgegraph-load-nodes-summary": "rufe Attribute der angegebenen Seiten ab",
+	"apihelp-knowledgegraph-load-nodes-example-1": "",
+	"apihelp-knowledgegraph-load-nodes-param-pageids": "",
+	
+	"specialpages-group-knowledgegraph": "KnowledgeGraph",
+	"knowledgegraphdesigner": "KnowledgeGraph Designer",
+	
+	"knowledgegraph-knowledgegraphdesigner-label": "KnowledgeGraph Designer"
 	
 
 }
