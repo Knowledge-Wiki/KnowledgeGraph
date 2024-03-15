@@ -1,7 +1,16 @@
-# mediawiki-extensions-KnowledgeGraph
+# KnowledgeGraph
 
-Visualizes SemanticMediawiki data with VisNetwork.js
+This extension provides the `#knowledgegraph` parser function to visualize the [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph) in Semantic MediaWiki with [vis-network.js](https://github.com/visjs/vis-network)
 Includes a KnowledgeGraph Designer through which interactively create/export graphs.
+
+
+## Requirements
+
+Requirements for KnowledgeGraph 1.x:
+
+- PHP 7.4 or later
+- MediaWiki 1.39 or later
+- SemanticMediaWiki 4.x or later
 
 ## Usage
 
