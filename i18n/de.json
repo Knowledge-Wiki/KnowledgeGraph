@@ -13,7 +13,7 @@
 	"specialpages-group-knowledgegraph": "KnowledgeGraph",
 	"knowledgegraphdesigner": "KnowledgeGraph Designer",
 
-	"knowledgegraph-knowledgegraphdesigner-label": "KnowledgeGraph Designer"
+	"knowledgegraph-knowledgegraphdesigner-label": "KnowledgeGraph Designer",
 	
 	"apihelp-knowledgegraph-load-nodes-summary": "rufe Attribute der angegebenen Seiten ab",
 	"apihelp-knowledgegraph-load-nodes-example-1": "",
