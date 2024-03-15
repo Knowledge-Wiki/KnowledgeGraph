@@ -6,7 +6,6 @@
     "url": "https://github.com/SemanticMediaWiki/KnowledgeGraph",
     "descriptionmsg": "knowledge-graph-desc",
     "namemsg": "knowledge-graph-name",
-    "license-name": "AGPL-3.0-or-later",
     "type":"semantic",
     "requires":{
         "MediaWiki":">= 1.31"

@@ -1,6 +1,7 @@
 # KnowledgeGraph
 
 This extension provides the `#knowledgegraph` parser function to visualize the [knowledge graph](https://en.wikipedia.org/wiki/Knowledge_graph) in Semantic MediaWiki with [vis-network.js](https://github.com/visjs/vis-network)
+
 Includes a KnowledgeGraph Designer through which interactively create/export graphs.
 
 
