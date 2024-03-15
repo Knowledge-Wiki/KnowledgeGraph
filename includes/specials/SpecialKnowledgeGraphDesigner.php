@@ -27,7 +27,7 @@ class SpecialKnowledgeGraphDesigner extends SpecialPage {
 		
 		$defaultParameters = [
 			'nodes' => [ '', 'array' ],
-			'only-properties' => [ '', 'array' ],
+			'properties' => [ '', 'array' ],
 			'nodes-by-properties' => [ '', 'array' ],
 			'depth' => [ '3', 'integer' ],
 			'graph-options' => [ '', 'string' ],

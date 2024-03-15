@@ -32,11 +32,6 @@ class KnowledgeGraphApiLoadProperties extends ApiBase {
 		$context = $this->getContext();
 		$output = $context->getOutput();
 
-		if ( empty( $params['properties'] ) ) {
-			$result->addValue( [ $this->getModuleName() ], 'error', 'empty parameter', ApiResult::NO_VALIDATE );
-			return;
-		}
-
 		\KnowledgeGraph::initSMW();
 
 		$titles_ = explode( '|', $params['properties'] );
@@ -50,13 +45,13 @@ class KnowledgeGraphApiLoadProperties extends ApiBase {
 				}
 			}
 		}
-		
-		$params['only-properties'] = [];
-		$params['depth'] = 0;
+
+		$params['properties'] = [];
+		// $params['depth'] = 0;
 
 		foreach ( $titles as $titleText => $title_ ) {
 			if ( !isset( self::$data[$titleText] ) ) {
-				\KnowledgeGraph::setSemanticData( $title_, $params['only-properties'], 0, $params['depth'] );
+				\KnowledgeGraph::setSemanticData( $title_, $params['properties'], 0, $params['depth'] );
 			}
 		}
 
@@ -71,11 +66,11 @@ class KnowledgeGraphApiLoadProperties extends ApiBase {
 		return [
 			'properties' => [
 				ApiBase::PARAM_TYPE => 'string',
-				ApiBase::PARAM_REQUIRED => false
+				ApiBase::PARAM_REQUIRED => true
 			],
 			'depth' => [
 				ApiBase::PARAM_TYPE => 'integer',
-				ApiBase::PARAM_REQUIRED => false
+				ApiBase::PARAM_REQUIRED => true
 			],
 			
 		];

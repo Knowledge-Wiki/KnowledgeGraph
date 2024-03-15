@@ -7,7 +7,6 @@
  */
 
 KnowledgeGraph = function () {
-	var Canvas = {};
 	var Nodes;
 	var Edges;
 	var Data = {};
@@ -22,6 +21,8 @@ KnowledgeGraph = function () {
 	var PopupMenuId = 'knowledgegraphp-popup-menu';
 	var InitialData;
 	var ContainerOptions;
+	var WindowManagerNonModal;
+	var DialogCredits = 'dialog-credits';
 
 	function deleteNode(nodeId) {
 		var children = Network.getConnectedNodes(nodeId);
@@ -42,17 +43,20 @@ KnowledgeGraph = function () {
 	function loadNodes(obj) {
 		if (obj.title !== null) {
 			var payload = {
-				titles: obj.title,
-				depth: Config.depth,
-				'only-properties': JSON.stringify(Config['only-properties']),
 				action: 'knowledgegraph-load-nodes',
+				titles: obj.title,
+				depth: obj.depth,
+				properties: JSON.stringify(Config['properties']),
 			};
 		} else {
 			var payload = {
-				properties: obj.properties.join('|'),
 				action: 'knowledgegraph-load-properties',
+				properties: obj.properties.join('|'),
+				depth: obj.depth,
 			};
 		}
+
+		console.log('payload', payload);
 
 		return new Promise((resolve, reject) => {
 			mw.loader.using('mediawiki.api', function () {
@@ -73,8 +77,6 @@ KnowledgeGraph = function () {
 						reject(thisRes);
 					});
 			});
-		}).catch((err) => {
-			console.log('err', err);
 		});
 	}
 
@@ -136,7 +138,9 @@ KnowledgeGraph = function () {
 		);
 
 		if (!(label in data)) {
-			nodeConfig.color = 'red';
+			nodeConfig.color.border = 'red';
+			nodeConfig.font.color = 'red';
+			nodeConfig.color.background = 'white';
 		}
 
 		if (data[label] === null) {
@@ -284,6 +288,118 @@ KnowledgeGraph = function () {
 		return obj !== null && typeof obj === 'object' && !Array.isArray(obj);
 	}
 
+	function NonModalDialog(config) {
+		NonModalDialog.super.call(this, config);
+	}
+	OO.inheritClass(NonModalDialog, OO.ui.Dialog);
+
+	// NonModalDialog.static.name = 'myDialogNonModal';
+	NonModalDialog.prototype.initialize = function () {
+		const dialog = this;
+
+		NonModalDialog.super.prototype.initialize.apply(this, arguments);
+		this.content = new OO.ui.PanelLayout({ padded: true, expanded: false });
+
+		this.content.$element.append(
+			'<p>' + mw.msg('knowledgegraph-credits') + '</p>'
+		);
+		this.content.$element.append(mw.msg('knowledgegraph-credits-list'));
+		this.content.$element.append('<p></p><br />');
+		const closeButton = new OO.ui.ButtonWidget({
+			label: OO.ui.msg('ooui-dialog-process-dismiss'),
+		});
+		closeButton.on('click', function () {
+			dialog.close();
+		});
+
+		this.content.$element.append(closeButton.$element);
+		this.$body.append(this.content.$element);
+	};
+	NonModalDialog.prototype.getBodyHeight = function () {
+		return this.content.$element.outerHeight(true);
+	};
+
+	function createActionToolbar() {
+		// see https://gerrit.wikimedia.org/r/plugins/gitiles/oojs/ui/+/refs/tags/v0.40.4/demos/pages/toolbars.js
+		var toolFactory = new OO.ui.ToolFactory();
+		var toolGroupFactory = new OO.ui.ToolGroupFactory();
+
+		var toolbar = new OO.ui.Toolbar(toolFactory, toolGroupFactory, {
+			actions: false,
+		});
+
+		var onSelect = function () {
+			var toolName = this.getName();
+
+			switch (toolName) {
+				case 'help-button':
+					window.open(HelpUrl, '_blank').focus();
+					break;
+				case 'info-button':
+					try {
+						WindowManagerNonModal.destroy();
+					} catch (exceptionVar) {}
+
+					WindowManagerNonModal = new OO.ui.WindowManager({
+						modal: false,
+						classes: ['OOUI-dialogs-non-modal'],
+					});
+
+					$(document.body).append(WindowManagerNonModal.$element);
+
+					// @see https://www.mediawiki.org/wiki/OOUI/Windows/Process_Dialogs
+					var myDialog = new NonModalDialog({
+						size: 'medium',
+					});
+
+					// WindowManagerNonModal.addWindows([myDialog]);
+					// WindowManagerNonModal.openWindow(myDialog, {});
+
+					var windows = {
+						[DialogCredits]: new NonModalDialog({
+							size: 'medium',
+						}),
+					};
+
+					WindowManagerNonModal.addWindows(windows);
+					WindowManagerNonModal.openWindow(DialogCredits, {});
+
+					break;
+			}
+			this.setActive(false);
+		};
+
+		var toolGroup = [
+			{
+				name: 'info-button',
+				icon: 'info',
+				title: mw.msg('knowledgegraph-toolbar-info'),
+				onSelect: onSelect,
+			},
+			{
+				name: 'help-button',
+				icon: 'helpNotice',
+				title: mw.msg('knowledgegraph-toolbar-help'),
+				onSelect: onSelect,
+			},
+		];
+
+		// @see https://www.mediawiki.org/wiki/OOUI/Toolbars
+		toolbar.setup([
+			{
+				type: 'bar',
+				include: [
+					'info-button',
+					// 'help-button'
+				],
+			},
+		]);
+
+		createToolGroup(toolFactory, 'selectSwitch', toolGroup);
+
+		return toolbar;
+	}
+
 	function initialize(container, containerToolbar, containerOptions, config) {
 		console.log('config', config);
 
@@ -298,7 +414,10 @@ KnowledgeGraph = function () {
 		if (config['show-toolbar']) {
 			var toolbar = createToolbar();
 			// toolbar.$element.insertBefore(container);
+			var actionToolbar = createActionToolbar();
+			toolbar.$actions.append(actionToolbar.$element);
 			toolbar.$element.appendTo(containerToolbar);
+			$(ContainerOptions).toggle(false);
 		}
 
 		Data = {};
@@ -316,13 +435,13 @@ KnowledgeGraph = function () {
 
 			var messageWidget = new OO.ui.MessageWidget({
 				type: 'info',
-				//  mw.msg(
 				label: new OO.ui.HtmlSnippet(
-					'Press the button below and copy/paste the contents of the "nodes" and "edges" keys in an article <a target="_blank" href="' +
+					mw.msg(
+						'knowledgegraph-graph-options-message',
 						mw.config
 							.get('wgArticlePath')
-							.replace('$1', 'MediaWiki:KnowledgeGraphOptions') +
-						'">like this</a>. Then set it as value of the "graph-options" or "property-options?[Property label] parameters of the KnowledgeGraph\'s parser-function'
+							.replace('$1', 'MediaWiki:KnowledgeGraphOptions')
+					)
 				),
 				invisibleLabel: false,
 				// classes:
@@ -331,8 +450,6 @@ KnowledgeGraph = function () {
 			$(containerOptions)
 				.find('.vis-configuration.vis-config-option-container')
 				.prepend(messageWidget.$element);
-
-			$(ContainerOptions).toggle(false);
 		}
 
 		createNodes(Config.data);
@@ -348,8 +465,7 @@ KnowledgeGraph = function () {
 				var menuObj = {
 					items: [
 						{
-							// mw.msg
-							label: 'open article',
+							label: mw.msg('knowledgegraph-menu-open-article'),
 							icon: 'link',
 							onClick: function () {
 								var hashIndex = nodeId.indexOf('#');
@@ -368,12 +484,10 @@ KnowledgeGraph = function () {
 
 				if (Config['show-toolbar'] === true) {
 					menuObj.items.push({
-						// mw.msg
-						label: 'delete node',
+						label: mw.msg('knowledgegraph-menu-delete-node'),
 						icon: 'trash',
 						onClick: function () {
-							// mw.msg
-							if (confirm('Are you sure you want to delete this node ?')) {
+							if (confirm(mw.msg('knowledgegraph-delete-node-confirm'))) {
 								deleteNode(nodeId);
 							}
 						},
@@ -422,7 +536,10 @@ KnowledgeGraph = function () {
 			var nodeId = params.nodes[0];
 
 			if (!(nodeId in Data) || Data[nodeId] === null) {
-				loadNodes({ title: params.nodes[0] }).then(function (data) {
+				loadNodes({
+					title: params.nodes[0],
+					depth: parseInt(Config.depth),
+				}).then(function (data) {
 					// console.log('data', data);
 					createNodes(data);
 					Nodes.update([
@@ -469,42 +586,30 @@ KnowledgeGraph = function () {
 	MyDialog.static.actions = [
 		{
 			flags: ['primary', 'progressive'],
-			// mw.msg
-			label: 'Continue',
+			label: mw.msg('knowledgegraph-dialog-continue'),
 			action: 'continue',
 			modes: ['select'],
 		},
 		{
 			action: 'back',
-			// mw.msg
-			label: 'Back',
+			label: mw.msg('knowledgegraph-dialog-back'),
 			flags: ['safe', 'back'],
 			modes: ['show-results', 'no-results', 'existing-node'],
 		},
 		{
 			flags: ['primary', 'progressive'],
-			// mw.msg
-			label: 'Done',
+			label: mw.msg('knowledgegraph-dialog-done'),
 			action: 'done',
-			modes: ['show-results'],
+			modes: ['show-results', 'edit'],
 		},
 		{
 			flags: 'safe',
-			// mw.msg
-			label: 'Cancel',
+			label: mw.msg('knowledgegraph-dialog-cancel'),
 			modes: ['select', 'no-results', 'show-results', 'existing-node', 'edit'],
 		},
 		{
-			flags: ['primary', 'progressive'],
-			// mw.msg
-			label: 'Done',
-			action: 'done',
-			modes: ['edit'],
-		},
-		{
 			action: 'delete',
-			// mw.msg
-			label: 'Delete',
+			label: mw.msg('knowledgegraph-dialog-delete'),
 			flags: 'destructive',
 			modes: ['edit'],
 		},
@@ -534,6 +639,8 @@ KnowledgeGraph = function () {
 
 			var fieldsetLayout = new OO.ui.FieldsetLayout();
 
+			var items = [];
+
 			self.titleInputWidget = new mw.widgets.TitleInputWidget({
 				autocomplete: true,
 				// suggestions: true,
@@ -541,20 +648,32 @@ KnowledgeGraph = function () {
 				// $overlay: true,
 				// allowSuggestionsWhenEmpty: true,
 			});
-			var field = new OO.ui.FieldLayout(self.titleInputWidget, {
-				// mw.msg
-				label: 'Select an article with semantic properties',
-				align: 'top',
+
+			items.push(
+				new OO.ui.FieldLayout(self.titleInputWidget, {
+					label: mw.msg('knowledgegraph-dialog-select-article'),
+					align: 'top',
+				})
+			);
+
+			self.depthInputWidget = new OO.ui.NumberInputWidget({
+				value: Config.depth,
 			});
 
-			fieldsetLayout.addItems([field]);
+			items.push(
+				new OO.ui.FieldLayout(self.depthInputWidget, {
+					label: mw.msg('knowledgegraph-dialog-edit-depth'),
+					align: 'top',
+				})
+			);
+
+			fieldsetLayout.addItems(items);
 
 			this.$element.append(fieldsetLayout.$element);
 		}
 		OO.inheritClass(TabPanelOneLayout, OO.ui.TabPanelLayout);
 		TabPanelOneLayout.prototype.setupTabItem = function () {
-			// mw.msg
-			this.tabItem.setLabel('By article');
+			this.tabItem.setLabel(mw.msg('knowledgegraph-dialog-tabs-by-article'));
 		};
 
 		function TabPanelTwoLayout(name, config) {
@@ -569,22 +688,35 @@ KnowledgeGraph = function () {
 				// $overlay: true,
 				// allowSuggestionsWhenEmpty: true,
 			});
-			var field = new OO.ui.FieldLayout(self.propertiesInputWidget, {
-				// mw.msg
-				label: 'Select one or more properties',
-				align: 'top',
-				// helpInline: true,
-				// help: 'Type an article title in the "MediaWiki" namespace',
+
+			var items = [];
+			items.push(
+				new OO.ui.FieldLayout(self.propertiesInputWidget, {
+					label: mw.msg('knowledgegraph-dialog-select-properties'),
+					align: 'top',
+					// helpInline: true,
+					// help: 'Type an article title in the "MediaWiki" namespace',
+				})
+			);
+
+			self.depthInputWidgetProperties = new OO.ui.NumberInputWidget({
+				value: Config.depth,
 			});
 
-			fieldsetLayout.addItems([field]);
+			items.push(
+				new OO.ui.FieldLayout(self.depthInputWidgetProperties, {
+					label: mw.msg('knowledgegraph-dialog-edit-depth'),
+					align: 'top',
+				})
+			);
+
+			fieldsetLayout.addItems(items);
 
 			this.$element.append(fieldsetLayout.$element);
 		}
 		OO.inheritClass(TabPanelTwoLayout, OO.ui.TabPanelLayout);
 		TabPanelTwoLayout.prototype.setupTabItem = function () {
-			// mw.msg
-			this.tabItem.setLabel('By properties');
+			this.tabItem.setLabel(mw.msg('knowledgegraph-dialog-tabs-by-properties'));
 		};
 
 		var tabPanel1 = new TabPanelOneLayout('by-article'),
@@ -675,19 +807,28 @@ KnowledgeGraph = function () {
 		this.panelB.$element.empty();
 
 		if (mode === 'no-results') {
-			// mw.msg
-			var msg = selectedTab === 'by-article' ? 'No properties' : 'No articles';
+			var msg = mw.msg(
+				selectedTab === 'by-article'
+					? 'knowledgegraph-dialog-results-no-properties'
+					: 'knowledgegraph-dialog-results-no-articles'
+			);
 
 			$el = $('<span>' + msg + '</span>');
 		} else if (mode === 'existing-node') {
-			// mw.msg
-			$el = $('<span>Existing node</span>');
+			$el = $(
+				'<span>' +
+					mw.msg('knowledgegraph-dialog-results-existing-node') +
+					'</span>'
+			);
 		} else {
 			$el = $('<ul>');
 			switch (selectedTab) {
 				case 'by-article':
-					// mw.msg
-					this.panelB.$element.append('<h3>Has properties:</h3>');
+					this.panelB.$element.append(
+						'<h3>' +
+							mw.msg('knowledgegraph-dialog-results-has-properties') +
+							'</h3>'
+					);
 					var properties = data[titleFullText];
 					for (var i in properties) {
 						var url = mw.config.get('wgArticlePath').replace('$1', i);
@@ -711,7 +852,11 @@ KnowledgeGraph = function () {
 
 				case 'by-properties':
 					// mw.msg
-					this.panelB.$element.append('<h3>Importing nodes:</h3>');
+					this.panelB.$element.append(
+						'<h3>' +
+							mw.msg('knowledgegraph-dialog-results-importing-nodes') +
+							'</h3>'
+					);
 					// @TODO display a message if all nodes exist
 
 					for (var i in data) {
@@ -741,8 +886,7 @@ KnowledgeGraph = function () {
 		var selfDialog = this;
 		switch (action) {
 			case 'delete':
-				// mw.msg
-				if (confirm('Are you sure you want to delete this node ?')) {
+				if (confirm(mw.msg('knowledgegraph-delete-node-confirm'))) {
 					deleteNode(SelectedNode);
 					return new OO.ui.Process(function () {
 						selfDialog.close({ action: action });
@@ -765,10 +909,16 @@ KnowledgeGraph = function () {
 							var selectedTab = selfDialog.indexLayout.getCurrentTabPanelName();
 							var titleValue = null;
 							var properties = null;
+							var depth;
 
 							switch (selectedTab) {
 								case 'by-article':
 									titleValue = selfDialog.titleInputWidget.getValue();
+
+									if (titleValue === '') {
+										resolve();
+										return;
+									}
 									var titleFullText = selfDialog.titleInputWidget
 										.getMWTitle()
 										.getPrefixedText();
@@ -779,23 +929,28 @@ KnowledgeGraph = function () {
 										resolve();
 										return;
 									}
-
-									if (titleValue === '') {
-										reject();
-									}
-
+									depth = selfDialog.depthInputWidget.getValue();
 									break;
 
 								case 'by-properties':
 									properties = selfDialog.propertiesInputWidget.getValue();
 
 									if (!properties.length) {
-										reject();
+										resolve();
+										return;
 									}
+									depth = selfDialog.depthInputWidgetProperties.getValue();
+
+									console.log('properties', properties);
 							}
 
-							loadNodes({ title: titleValue, properties }).then(
-								function (data) {
+							loadNodes({
+								title: titleValue,
+								properties,
+								depth: parseInt(depth),
+							})
+								.then(function (data) {
+									console.log('data', data);
 									// Properties = data[titleFullText];
 									TmpData = data;
 									if (selectedTab === 'by-article') {
@@ -816,10 +971,10 @@ KnowledgeGraph = function () {
 									);
 									selfDialog.actions.setMode(mode);
 									resolve();
-								}
-							);
-						}).catch((err) => {
-							console.log('err', err);
+								})
+								.catch((err) => {
+									console.log('err loadNodes', err);
+								});
 						});
 					});
 				break;
@@ -828,14 +983,6 @@ KnowledgeGraph = function () {
 				this.stackLayout.setItem(this.stackLayout.getItems()[0]);
 				this.actions.setMode('select');
 				break;
-		}
-
-		return MyDialog.super.prototype.getActionProcess.call(this, action);
-
-		if (action === 'open') {
-			return new OO.ui.Process(function () {
-				window.open(this.urlInput.getValue());
-			}, this);
 		}
 
 		return MyDialog.super.prototype.getActionProcess.call(this, action);
@@ -864,10 +1011,36 @@ KnowledgeGraph = function () {
 				case 'add-node':
 					openDialog(null);
 					break;
-				case 'nodes-by-property':
-					break;
 
 				case 'export-graph':
+					console.log('Data', Data);
+					var nodes = [];
+					var properties = [];
+					var propertyOptions = '';
+					for (var i in Data) {
+						if (Data[i] !== null) {
+							nodes.push(i);
+						}
+						for (var ii in Data[i]) {
+							properties.push(Data[i][ii].canonicalLabel);
+							propertyOptions += `|property-options?${Data[i][ii].canonicalLabel}=\n`;
+						}
+					}
+
+					var text = `{{#knowledgegraph:
+nodes=${nodes.join(', ')}
+|properties=${properties.join(', ')}
+|depth=0
+|graph-options=
+${propertyOptions}|show-toolbar=false
+|show-property-type=true
+|width= 400px
+|height= 400px
+}}`;
+					navigator.clipboard.writeText(text).then(function () {
+						alert(mw.msg('knowledgegraph-copied-to-clipboard'));
+					});
+
 					break;
 
 				case 'show-config':
@@ -877,8 +1050,7 @@ KnowledgeGraph = function () {
 					break;
 
 				case 'reload':
-					// mw.msg
-					if (confirm('Are you sure you want to reinitialize the Network ?')) {
+					if (confirm(mw.msg('knowledgegraph-toolbar-reset-network-confirm'))) {
 						Data = {};
 						Nodes = new vis.DataSet([]);
 						Edges = new vis.DataSet([]);
@@ -899,28 +1071,19 @@ KnowledgeGraph = function () {
 			{
 				name: 'add-node',
 				icon: 'add',
-				// mw.msg
-				title: 'add node',
+				title: mw.msg('knowledgegraph-toolbar-add-node'),
 				onSelect: onSelect,
 			},
 			{
 				name: 'show-config',
 				icon: 'settings',
-				// mw.msg
-				title: 'toggle config',
+				title: mw.msg('knowledgegraph-toolbar-toggle-config'),
 				onSelect: onSelect,
 			},
-			// {
-			// 	name: 'nodes-by-property',
-			// 	icon: 'add',
-			// 	title: 'add nodes by property',
-			// 	onSelect: onSelect,
-			// },
 			{
 				name: 'export-graph',
 				icon: 'eye',
-				// mw.msg
-				title: 'export graph',
+				title: mw.msg('knowledgegraph-toolbar-export-graph'),
 				onSelect: onSelect,
 			},
 		];
@@ -930,8 +1093,7 @@ KnowledgeGraph = function () {
 			toolGroup.splice(2, 0, {
 				name: 'reload',
 				icon: 'reload',
-				// mw.msg
-				title: 'reset',
+				title: mw.msg('knowledgegraph-toolbar-reset-network'),
 				onSelect: onSelect,
 			});
 		}
@@ -1466,8 +1628,8 @@ $(document).ready(async function () {
 				data: {},
 				// graphOptions: new KnowledgeGraph().getDefaultOptions(),
 				propertyOptions: {},
-				'only-properties': [],
-				'nodes-by-properties': {},
+				properties: [],
+				// 'nodes-by-properties': {},
 				depth: '',
 				width: '',
 				height: '',
@@ -1489,17 +1651,22 @@ $(document).ready(async function () {
 		var containerToolbar = null;
 		var containerOptions = null;
 
-		if (!config.graphOptions.configure.container) {
-			if (config['show-toolbar']) {
+		if (config['show-toolbar']) {
+			config.graphOptions.configure.enabled = true;
+			if (config.graphOptions.configure.container) {
+				containerOptions = config.graphOptions.configure.container;
+				containerToolbar = document.createElement('div');
+				containerToolbar.insertBefore(container);
+			} else {
 				var $container = $(this).clone();
 
 				$table = $(
 					`
-<div class="KnowledgeGraphTable" style="display:table" style="height:` +
+<div class="KnowledgeGraphTable" style="display:table_" style="height:` +
 						config.height +
 						`">
-	<div style="display:table-row" class="KnowledgeGraph-toolbar">
-	
+	<div style="column-span:all;width:100%" class="KnowledgeGraph-toolbar">
+		
 	</div>
 	<div style="display:table-row">
 		<div class="KnowledgeGraph-network" style="display:table-cell;width:50%;vertical-align:top"></div>
@@ -1520,13 +1687,9 @@ $(document).ready(async function () {
 				container = $container.get(0);
 				containerToolbar = $table.find('.KnowledgeGraph-toolbar').get(0);
 				containerOptions = $table.find('.KnowledgeGraph-options').get(0);
-
-				config.graphOptions.configure.enabled = true;
-			} else {
-				config.graphOptions.configure.enabled = false;
 			}
 		} else {
-			containerOptions = config.graphOptions.configure.container;
+			config.graphOptions.configure.enabled = false;
 		}
 
 		graph.initialize(container, containerToolbar, containerOptions, config);

@@ -157,7 +157,7 @@ class KnowledgeGraph {
 /*
 {{#knowledgegraph:
 nodes=TestPage
-|only-properties=HasProperty1,HasProperty2
+|properties=HasProperty1,HasProperty2
 |depth=3
 |graph-options=Mediawiki:knowledgegraphGraphOptions
 |property-options?HasProperty1=Mediawiki:knowledgegraphNodeOptionsHasProperty1
@@ -169,8 +169,8 @@ nodes=TestPage
 */
 		$defaultParameters = [
 			'nodes' => [ '', 'array' ],
-			'only-properties' => [ '', 'array' ],
-			'nodes-by-properties' => [ '', 'array' ],
+			'properties' => [ '', 'array' ],
+			// 'nodes-by-properties' => [ '', 'array' ],
 			// 'autoexpand' => [ 'false', 'boolean' ],
 			'depth' => [ '3', 'integer' ],
 			'graph-options' => [ '', 'string' ],
@@ -198,7 +198,7 @@ nodes=TestPage
 			$title_ = Title::newFromText( $titleText );
 			if ( $title_ && $title_->isKnown() ) {
 				if ( !isset( self::$data[$title_->getFullText()] ) ) {
-					self::setSemanticData( $title_, $params['only-properties'], 0, $params['depth'] );
+					self::setSemanticData( $title_, $params['properties'], 0, $params['depth'] );
 				}
 			}
 		}
@@ -482,8 +482,8 @@ nodes=TestPage
 								self::$data[$title_->getFullText()] = null;
 							}
 							$output[$objKey]['values'][] = $title_->getFullText();
-						} else if ( !isset( self::$data[str_replace( '_', '', $dataValue->getWikiValue())] ) ) {
-							$output[$objKey]['values'][] = $dataValue->getWikiValue();
+						} else if ( !isset( self::$data[str_replace( '_', ' ', $dataValue->getWikiValue())] ) ) {
+							$output[$objKey]['values'][] = str_replace( '_', ' ', $dataValue->getWikiValue());
 						}
 					} else {
 						$output[$objKey]['values'][] = $dataValue->getWikiValue();
