@@ -7,6 +7,7 @@
  * @author thomas-topway-it for KM-A
  */
 
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\SlotRecord;
 use SMW\MediaWiki\Specials\SearchByProperty\PageRequestOptions;
 use SMW\MediaWiki\Specials\SearchByProperty\QueryResultLookup;
@@ -190,7 +191,10 @@ nodes=TestPage
 		// property-related options
 		foreach ( $values as $val ) {
 			if ( preg_match( '/^property-options(\?(.+))?=(.+)/', $val, $match ) ) {
-				$propertyOptions[$match[2]] = $match[3];
+				$title_ = Title::makeTitleSafe( \SMW_NS_PROPERTY, $match[2] );
+				if ( $title_ ) {
+					$propertyOptions[$title_->getText()] = $match[3];
+				}
 			}
 		}
 
@@ -232,6 +236,7 @@ nodes=TestPage
 		$out->setExtensionData( 'knowledgegraphs', self::$graphs );
 
 		$out->addJsConfigVars( [
+			'KnowledgeGraphShowImages' => $GLOBALS['wgKnowledgeGraphShowImages'],
 			'KnowledgeGraphDisableCredits' => $GLOBALS['wgKnowledgeGraphDisableCredits']
 		] );
 
@@ -411,12 +416,22 @@ nodes=TestPage
 	 * @return array
 	 */
 	public static function setSemanticData( Title $title, $onlyProperties, $depth, $maxDepth ) {
+		$services = MediaWikiServices::getInstance();
 		$langCode = \RequestContext::getMain()->getLanguage()->getCode();
 		$propertyRegistry = \SMW\PropertyRegistry::getInstance();
 		$dataTypeRegistry = \SMW\DataTypeRegistry::getInstance();
 		$subject = new \SMW\DIWikiPage( $title->getDbKey(), $title->getNamespace() );
 		$semanticData = self::$SMWStore->getSemanticData( $subject );
-		$output = [];
+		$output = [
+			'properties' => []
+		];
+
+		if ( $title->getNamespace() === NS_FILE ) {
+			$img = $services->getRepoGroup()->findFile( $title );
+			if ( $img ) {
+				$output['src'] = $img->getFullUrl();
+			}
+		}
 
 		// ***important, this prevents infinite recursion
 		// no properties
@@ -458,7 +473,7 @@ nodes=TestPage
 			$propertyTitle = $property->getCanonicalDiWikiPage()->getTitle();
 			$objKey = $propertyTitle->getFullText();
 
-			$output[$objKey] = [
+			$output['properties'][$objKey] = [
 				// 'url' => $propertyTitle->getFullURL(),
 				'key' => $key,
 				'typeId' => $typeID,
@@ -476,6 +491,7 @@ nodes=TestPage
 					$dataValue->setOption( 'no.text.transformation', true );
 					$dataValue->setOption( 'form/short', true );
 
+					$obj_ = [];
 					if ( $typeID === '_wpg' ) {
 						$title_ = $dataItem->getTitle();
 					 	if ( $title_ && $title_->isKnown() && !isset( self::$data[$title_->getFullText()] ) ) {
@@ -485,13 +501,22 @@ nodes=TestPage
 								// not loaded
 								self::$data[$title_->getFullText()] = null;
 							}
-							$output[$objKey]['values'][] = $title_->getFullText();
+							$obj_['value'] = $title_->getFullText();
+	
+							if ( $title_->getNamespace() === NS_FILE ) {
+								$img_ = $services->getRepoGroup()->findFile( $title_ );
+								if ( $img_ ) {
+									$obj_['src'] = $img_->getFullUrl();
+								}
+							}
 						} else if ( !isset( self::$data[str_replace( '_', ' ', $dataValue->getWikiValue())] ) ) {
-							$output[$objKey]['values'][] = str_replace( '_', ' ', $dataValue->getWikiValue());
+							$obj_['value'] = str_replace( '_', ' ', $dataValue->getWikiValue());
 						}
 					} else {
-						$output[$objKey]['values'][] = $dataValue->getWikiValue();
+						$obj_['value'] = $dataValue->getWikiValue();
 					}
+
+					$output['properties'][$objKey]['values'][] = $obj_;
 				}
 			}
 		}

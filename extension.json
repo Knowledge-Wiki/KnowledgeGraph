@@ -104,6 +104,9 @@
 	"config": {
 		"KnowledgeGraphDisableCredits": {
 			"value": false
+		},
+		"KnowledgeGraphShowImages": {
+			"value": true
 		}
 	}
 }

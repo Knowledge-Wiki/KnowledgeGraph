@@ -23,6 +23,7 @@ KnowledgeGraph = function () {
 	var ContainerOptions;
 	var WindowManagerNonModal;
 	var DialogCredits = 'dialog-credits';
+	var PropColors = {};
 
 	function deleteNode(nodeId) {
 		var children = Network.getConnectedNodes(nodeId);
@@ -117,7 +118,7 @@ KnowledgeGraph = function () {
 		return panel.$element.get(0);
 	}
 
-	function addNode(data, label) {
+	function addArticleNode(data, label, options) {
 		if (Nodes.get(label) !== null) {
 			return;
 		}
@@ -136,7 +137,8 @@ KnowledgeGraph = function () {
 
 				// https://visjs.github.io/vis-network/examples/network/other/popups.html
 				// title: createHTMLTitle(label),
-			}
+			},
+			options || {}
 		);
 
 		if (!(label in data)) {
@@ -150,6 +152,15 @@ KnowledgeGraph = function () {
 			nodeConfig.shapeProperties.borderDashes = [5, 5];
 		}
 
+		if (
+			data[label] &&
+			data[label].src &&
+			mw.config.get('KnowledgeGraphShowImages') === true
+		) {
+			nodeConfig.shape = 'image';
+			nodeConfig.image = data[label].src;
+		}
+
 		Nodes.add(nodeConfig);
 	}
 
@@ -159,7 +170,7 @@ KnowledgeGraph = function () {
 				continue;
 			}
 
-			addNode(data, label);
+			addArticleNode(data, label);
 
 			// not loaded
 			if (data[label] === null) {
@@ -167,32 +178,50 @@ KnowledgeGraph = function () {
 			}
 
 			// i is property Article title
-			for (var i in data[label]) {
+			for (var i in data[label].properties) {
 				// if (
 				// 	propLabel in ModelProperties &&
 				// 	ModelProperties[propLabel].getValue() === false
 				// ) {
 				// 	continue;
 				// }
+				var property = data[label].properties[i];
 
-				var color = randomHSL();
+				if (!(property.canonicalLabel in PropColors)) {
+					PropColors[property.canonicalLabel] = randomHSL();
+				}
+
+				var options =
+					property.preferredLabel in Config.propertyOptions
+						? Config.propertyOptions[property.preferredLabel]
+						: property.canonicalLabel in Config.propertyOptions
+							? Config.propertyOptions[property.canonicalLabel]
+							: {};
+
+				if ('nodes' in options) {
+					options = options.nodes;
+				}
+
+				if (!('color' in options)) {
+					options.color = PropColors[property.canonicalLabel];
+				}
 
 				var propLabel =
-					(data[label][i].preferredLabel !== ''
-						? data[label][i].preferredLabel
-						: data[label][i].canonicalLabel) +
+					(property.preferredLabel !== ''
+						? property.preferredLabel
+						: property.canonicalLabel) +
 					(!Config['show-property-type']
 						? ''
-						: ' (' + data[label][i].typeLabel + ')');
+						: ' (' + property.typeLabel + ')');
 
-				switch (data[label][i].typeId) {
+				switch (property.typeId) {
 					case '_wpg':
-						for (var label_ of data[label][i].values) {
+						for (var ii in property.values) {
 							var edgeConfig = jQuery.extend(
 								JSON.parse(JSON.stringify(Config.graphOptions.edges)),
 								{
 									from: label,
-									to: label_,
+									to: property.values[ii].value,
 									label: propLabel,
 									group: label,
 								}
@@ -200,7 +229,15 @@ KnowledgeGraph = function () {
 
 							edgeConfig.arrows.to.enabled = true;
 							Edges.add(edgeConfig);
-							addNode(data, label_);
+							if (
+								property.values[ii].src &&
+								mw.config.get('KnowledgeGraphShowImages') === true
+							) {
+								options.shape = 'image';
+								options.image = property.values[ii].src;
+							}
+
+							addArticleNode(data, property.values[ii].value, options);
 						}
 
 						break;
@@ -215,23 +252,16 @@ KnowledgeGraph = function () {
 							group: label,
 						});
 
-						var propValue = data[label][i].values.join(', ');
+						var propValue = property.values.map((x) => x.value).join(', ');
 
 						Nodes.add(
-							jQuery.extend(
-								data[label].preferredLabel in Config.propertyOptions
-									? Config.propertyOptions[data[label].preferredLabel]
-									: data[label].canonicalLabel in Config.propertyOptions
-										? Config.propertyOptions[data[label].canonicalLabel]
-										: { color },
-								{
-									id: valueId,
-									label:
-										propValue.length <= maxPropValueLength
-											? propValue
-											: propValue.substring(0, maxPropValueLength) + '…',
-								}
-							)
+							jQuery.extend(options, {
+								id: valueId,
+								label:
+									propValue.length <= maxPropValueLength
+										? propValue
+										: propValue.substring(0, maxPropValueLength) + '…',
+							})
 						);
 				}
 			}
@@ -375,26 +405,26 @@ KnowledgeGraph = function () {
 			{
 				name: 'info-button',
 				icon: 'info',
-				title: mw.msg('knowledgegraph-toolbar-info'),
+				// title: mw.msg('knowledgegraph-toolbar-info'),
 				onSelect: onSelect,
 			},
 			{
 				name: 'help-button',
 				icon: 'helpNotice',
-				title: mw.msg('knowledgegraph-toolbar-help'),
+				// title: mw.msg('knowledgegraph-toolbar-help'),
 				onSelect: onSelect,
 			},
 		];
 
 		var include = [];
-		if ( mw.config.get('KnowledgeGraphDisableCredits') === false ) {
+		if (mw.config.get('KnowledgeGraphDisableCredits') === false) {
 			include.push('info-button');
 		}
 
 		// this should be required only when the toolbar
 		// is not rendered in the special page and the
 		// extension page has been published
-		if ( false ) {
+		if (false) {
 			include.push('info-button');
 		}
 
@@ -402,7 +432,7 @@ KnowledgeGraph = function () {
 		toolbar.setup([
 			{
 				type: 'bar',
-				include
+				include,
 			},
 		]);
 
@@ -731,7 +761,7 @@ KnowledgeGraph = function () {
 					align: 'top',
 				})
 			);
-			
+
 			self.offsetInputWidgetProperties = new OO.ui.NumberInputWidget({
 				value: 0,
 			});
@@ -862,7 +892,7 @@ KnowledgeGraph = function () {
 							mw.msg('knowledgegraph-dialog-results-has-properties') +
 							'</h3>'
 					);
-					var properties = data[titleFullText];
+					var properties = data[titleFullText].properties;
 					for (var i in properties) {
 						var url = mw.config.get('wgArticlePath').replace('$1', i);
 
@@ -976,7 +1006,7 @@ KnowledgeGraph = function () {
 									limit = selfDialog.limitInputWidgetProperties.getValue();
 									offset = selfDialog.offsetInputWidgetProperties.getValue();
 
-									// console.log('properties', properties);
+								// console.log('properties', properties);
 							}
 
 							loadNodes({
@@ -1055,13 +1085,17 @@ KnowledgeGraph = function () {
 					var properties = [];
 					var propertyOptions = '';
 					for (var i in Data) {
-						if (Data[i] !== null && nodes.indexOf(i) === -1 ) {
+						if ( nodes.indexOf(i) === -1) {
 							nodes.push(i);
 						}
-						for (var ii in Data[i]) {
-							if ( properties.indexOf(Data[i][ii].canonicalLabel) === -1 ) { 
-								properties.push(Data[i][ii].canonicalLabel);
-								propertyOptions += `|property-options?${Data[i][ii].canonicalLabel}=\n`;
+						if ( Data[i] === null ) {
+							continue;
+						}
+						for (var ii in Data[i].properties) {
+							var property = Data[i].properties[ii];
+							if (properties.indexOf(property.canonicalLabel) === -1) {
+								properties.push(property.canonicalLabel);
+								propertyOptions += `|property-options?${property.canonicalLabel}=\n`;
 							}
 						}
 					}
@@ -1731,7 +1765,7 @@ $(document).ready(async function () {
 			config.graphOptions.configure.enabled = false;
 		}
 
+		console.log('config', config);
 		graph.initialize(container, containerToolbar, containerOptions, config);
 	});
 });
-
