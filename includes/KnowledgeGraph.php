@@ -232,7 +232,7 @@ nodes=TestPage
 		$out->setExtensionData( 'knowledgegraphs', self::$graphs );
 
 		$out->addJsConfigVars( [
-			'KnowledgeGraphShowCredits' => $GLOBALS['wgKnowledgeGraphShowCredits']
+			'KnowledgeGraphDisableCredits' => $GLOBALS['wgKnowledgeGraphDisableCredits']
 		] );
 
 		return [

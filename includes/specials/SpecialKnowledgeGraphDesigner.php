@@ -58,7 +58,7 @@ class SpecialKnowledgeGraphDesigner extends SpecialPage {
 
 		$out->addJsConfigVars( [
 			'knowledgegraphs' => json_encode( \KnowledgeGraph::$graphs ),
-			'KnowledgeGraphShowCredits' => $GLOBALS['wgKnowledgeGraphShowCredits']
+			'KnowledgeGraphDisableCredits' => $GLOBALS['wgKnowledgeGraphDisableCredits']
 		] );
 
 		$out->addHTML(
