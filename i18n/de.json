@@ -5,7 +5,6 @@
 	"knowledge-graph-name": "KnowledgeGraph",
 	"knowledge-graph-desc": "Stellt Daten in Semantic MediaWiki mittels VisNetwork.js dar.",
 	"knowledge-graph-wrapper-loading": "Wissensgraph lädt...",
-<<<<<<< HEAD
 
 	"apihelp-knowledgegraph-load-nodes-summary": "rufe Attribute der angegebenen Seiten ab",
 	"apihelp-knowledgegraph-load-nodes-example-1": "",
@@ -14,8 +13,7 @@
 	"specialpages-group-knowledgegraph": "KnowledgeGraph",
 	"knowledgegraphdesigner": "KnowledgeGraph Designer",
 
-	"knowledgegraph-knowledgegraphdesigner-label": "KnowledgeGraph Designer"
-=======
+	"knowledgegraph-knowledgegraphdesigner-label": "KnowledgeGraph Designer",
 	
 	"apihelp-knowledgegraph-load-nodes-summary": "rufe Attribute der angegebenen Seiten ab",
 	"apihelp-knowledgegraph-load-nodes-example-1": "",
@@ -25,7 +23,5 @@
 	"knowledgegraphdesigner": "KnowledgeGraph Designer",
 	
 	"knowledgegraph-knowledgegraphdesigner-label": "KnowledgeGraph Designer"
-	
->>>>>>> a50b71e973307f184354d5cf2059494e147d3a39
 
 }

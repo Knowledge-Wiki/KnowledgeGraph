@@ -53,17 +53,19 @@ KnowledgeGraph = function () {
 				action: 'knowledgegraph-load-properties',
 				properties: obj.properties.join('|'),
 				depth: obj.depth,
+				limit: obj.limit,
+				offset: obj.offset,
 			};
 		}
 
-		console.log('payload', payload);
+		// console.log('payload', payload);
 
 		return new Promise((resolve, reject) => {
 			mw.loader.using('mediawiki.api', function () {
 				new mw.Api()
 					.postWithToken('csrf', payload)
 					.done(function (thisRes) {
-						console.log('thisRes', thisRes);
+						// console.log('thisRes', thisRes);
 						if ('data' in thisRes[payload.action]) {
 							var data_ = JSON.parse(thisRes[payload.action].data);
 							resolve(data_);
@@ -384,14 +386,23 @@ KnowledgeGraph = function () {
 			},
 		];
 
+		var include = [];
+		if ( mw.config.get('KnowledgeGraphShowCredits') ) {
+			include.push('info-button');
+		}
+
+		// this should be required only when the toolbar
+		// is not rendered in the special page and the
+		// extension page has been published
+		if ( false ) {
+			include.push('info-button');
+		}
+
 		// @see https://www.mediawiki.org/wiki/OOUI/Toolbars
 		toolbar.setup([
 			{
 				type: 'bar',
-				include: [
-					'info-button',
-					// 'help-button'
-				],
+				include
 			},
 		]);
 
@@ -401,7 +412,7 @@ KnowledgeGraph = function () {
 	}
 
 	function initialize(container, containerToolbar, containerOptions, config) {
-		console.log('config', config);
+		// console.log('config', config);
 
 		InitialData = JSON.parse(JSON.stringify(config.data));
 		Config = config;
@@ -710,6 +721,28 @@ KnowledgeGraph = function () {
 				})
 			);
 
+			self.limitInputWidgetProperties = new OO.ui.NumberInputWidget({
+				value: 100,
+			});
+
+			items.push(
+				new OO.ui.FieldLayout(self.limitInputWidgetProperties, {
+					label: mw.msg('knowledgegraph-dialog-edit-limit'),
+					align: 'top',
+				})
+			);
+			
+			self.offsetInputWidgetProperties = new OO.ui.NumberInputWidget({
+				value: 0,
+			});
+
+			items.push(
+				new OO.ui.FieldLayout(self.offsetInputWidgetProperties, {
+					label: mw.msg('knowledgegraph-dialog-edit-offset'),
+					align: 'top',
+				})
+			);
+
 			fieldsetLayout.addItems(items);
 
 			this.$element.append(fieldsetLayout.$element);
@@ -762,7 +795,7 @@ KnowledgeGraph = function () {
 		// When working with a stack layout, you can use:
 		//   return this.panels.getCurrentItem().$element.outerHeight( true );
 		//return this.stackLayout.getCurrentItem().$element.outerHeight(true);
-		return 200;
+		return 280;
 	};
 
 	MyDialog.prototype.getSetupProcess = function (data) {
@@ -909,7 +942,7 @@ KnowledgeGraph = function () {
 							var selectedTab = selfDialog.indexLayout.getCurrentTabPanelName();
 							var titleValue = null;
 							var properties = null;
-							var depth;
+							var depth, limit, offset;
 
 							switch (selectedTab) {
 								case 'by-article':
@@ -940,17 +973,21 @@ KnowledgeGraph = function () {
 										return;
 									}
 									depth = selfDialog.depthInputWidgetProperties.getValue();
+									limit = selfDialog.limitInputWidgetProperties.getValue();
+									offset = selfDialog.offsetInputWidgetProperties.getValue();
 
-									console.log('properties', properties);
+									// console.log('properties', properties);
 							}
 
 							loadNodes({
 								title: titleValue,
 								properties,
 								depth: parseInt(depth),
+								limit: parseInt(limit),
+								offset: parseInt(offset),
 							})
 								.then(function (data) {
-									console.log('data', data);
+									// console.log('data', data);
 									// Properties = data[titleFullText];
 									TmpData = data;
 									if (selectedTab === 'by-article') {
@@ -1013,17 +1050,19 @@ KnowledgeGraph = function () {
 					break;
 
 				case 'export-graph':
-					console.log('Data', Data);
+					// console.log('Data', Data);
 					var nodes = [];
 					var properties = [];
 					var propertyOptions = '';
 					for (var i in Data) {
-						if (Data[i] !== null) {
+						if (Data[i] !== null && nodes.indexOf(i) === -1 ) {
 							nodes.push(i);
 						}
 						for (var ii in Data[i]) {
-							properties.push(Data[i][ii].canonicalLabel);
-							propertyOptions += `|property-options?${Data[i][ii].canonicalLabel}=\n`;
+							if ( properties.indexOf(Data[i][ii].canonicalLabel) === -1 ) { 
+								properties.push(Data[i][ii].canonicalLabel);
+								propertyOptions += `|property-options?${Data[i][ii].canonicalLabel}=\n`;
+							}
 						}
 					}
 
@@ -1034,8 +1073,8 @@ nodes=${nodes.join(', ')}
 |graph-options=
 ${propertyOptions}|show-toolbar=false
 |show-property-type=true
-|width= 400px
-|height= 400px
+|width=400px
+|height=400px
 }}`;
 					navigator.clipboard.writeText(text).then(function () {
 						alert(mw.msg('knowledgegraph-copied-to-clipboard'));
@@ -1583,7 +1622,7 @@ ${propertyOptions}|show-toolbar=false
 $(document).ready(async function () {
 	var semanticGraphs = JSON.parse(mw.config.get('knowledgegraphs'));
 
-	console.log('semanticGraphs', semanticGraphs);
+	// console.log('semanticGraphs', semanticGraphs);
 
 	async function getModule(str) {
 		var module = await import(`data:text/javascript;base64,${btoa(str)}`);

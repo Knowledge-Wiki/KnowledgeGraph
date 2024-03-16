@@ -56,7 +56,10 @@ class SpecialKnowledgeGraphDesigner extends SpecialPage {
 
 		\KnowledgeGraph::$graphs[] = $params;
 
-		$out->addJsConfigVars( [ 'knowledgegraphs' => json_encode( \KnowledgeGraph::$graphs ) ] );
+		$out->addJsConfigVars( [
+			'knowledgegraphs' => json_encode( \KnowledgeGraph::$graphs ),
+			'KnowledgeGraphShowCredits' => $GLOBALS['wgKnowledgeGraphShowCredits']
+		] );
 
 		$out->addHTML(
 			'<div class="KnowledgeGraph" id="knowledgegraph-wrapper-' . key( \KnowledgeGraph::$graphs ) . '">'

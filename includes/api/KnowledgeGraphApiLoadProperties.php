@@ -39,7 +39,7 @@ class KnowledgeGraphApiLoadProperties extends ApiBase {
 		foreach ( $titles_ as $titleText ) {
 			$title_ = Title::makeTitleSafe( SMW_NS_PROPERTY, $titleText );
 			if ( $title_ && $title_->isKnown() ) {
-				$subjects = \KnowledgeGraph::getSubjectsByProperty( $title_->getText() );
+				$subjects = \KnowledgeGraph::getSubjectsByProperty( $title_->getText(), $params['limit'], $params['offset'] );
 				foreach ( $subjects as $title__ ) {
 					$titles[$title__->getFullText()] = $title__;
 				}
@@ -69,6 +69,14 @@ class KnowledgeGraphApiLoadProperties extends ApiBase {
 				ApiBase::PARAM_REQUIRED => true
 			],
 			'depth' => [
+				ApiBase::PARAM_TYPE => 'integer',
+				ApiBase::PARAM_REQUIRED => true
+			],
+			'limit' => [
+				ApiBase::PARAM_TYPE => 'integer',
+				ApiBase::PARAM_REQUIRED => true
+			],
+			'offset' => [
 				ApiBase::PARAM_TYPE => 'integer',
 				ApiBase::PARAM_REQUIRED => true
 			],

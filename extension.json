@@ -80,6 +80,8 @@
 				"knowledgegraph-dialog-delete",
 				"knowledgegraph-dialog-select-article",
 				"knowledgegraph-dialog-edit-depth",
+				"knowledgegraph-dialog-edit-limit",
+				"knowledgegraph-dialog-edit-offset",
 				"knowledgegraph-dialog-tabs-by-article",
 				"knowledgegraph-dialog-select-properties",
 				"knowledgegraph-dialog-tabs-by-properties",
@@ -98,5 +100,10 @@
 				"knowledgegraph-credits-list"
 			]
         }
-    }
+    },
+	"config": {
+		"KnowledgeGraphShowCredits": {
+			"value": true
+		}
+	}
 }

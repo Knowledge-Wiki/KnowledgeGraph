@@ -231,6 +231,10 @@ nodes=TestPage
 
 		$out->setExtensionData( 'knowledgegraphs', self::$graphs );
 
+		$out->addJsConfigVars( [
+			'KnowledgeGraphShowCredits' => $GLOBALS['wgKnowledgeGraphShowCredits']
+		] );
+
 		return [
 			'<div class="KnowledgeGraph" id="knowledgegraph-wrapper-' . key( self::$graphs ) . '">'
 				. wfMessage( 'knowledge-graph-wrapper-loading' )->text() . '</div>',
@@ -241,12 +245,11 @@ nodes=TestPage
 
 	/**
 	 * @param string $propertyText
+	 * @param int $limit
+	 * @param int $offset
 	 * @return array
 	 */
-	public static function getSubjectsByProperty( $propertyText ) {
-		$limit = 500;
-		$offset = 0;
-
+	public static function getSubjectsByProperty( $propertyText, $limit = 100, $offset = 0 ) {
 		$requestOptions = [
 			'limit'    => $limit,
 			'offset'   => $offset,
@@ -262,7 +265,8 @@ nodes=TestPage
 		// @TODO use destructureDIContainer from QueryResultLookup
 		$DIProperty = $pageRequestOptions->property->getDataItem();
 		$requestOptions = new \SMWRequestOptions();
-		$requestOptions->limit = 100;
+		$requestOptions->setLimit( $limit );
+		$requestOptions->setOffset( $offset );
 
 		$results = self::$SMWStore->getPropertySubjects( $DIProperty, null, $requestOptions );
 		$ret = [];
