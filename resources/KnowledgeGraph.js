@@ -387,7 +387,7 @@ KnowledgeGraph = function () {
 		];
 
 		var include = [];
-		if ( mw.config.get('KnowledgeGraphShowCredits') ) {
+		if ( mw.config.get('KnowledgeGraphDisableCredits') === false ) {
 			include.push('info-button');
 		}
 

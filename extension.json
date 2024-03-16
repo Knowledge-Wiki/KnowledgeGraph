@@ -102,8 +102,8 @@
         }
     },
 	"config": {
-		"KnowledgeGraphShowCredits": {
-			"value": true
+		"KnowledgeGraphDisableCredits": {
+			"value": false
 		}
 	}
 }
