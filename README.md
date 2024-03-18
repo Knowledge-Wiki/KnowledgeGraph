@@ -22,8 +22,8 @@ Insert a parser function like
 nodes=Page A, Page B
 |properties=HasProperty1,HasProperty2
 |depth=3
-|graph-options=Mediawiki:knowledgegraphGraphOptions
-|property-options?HasProperty1=Mediawiki:knowledgegraphNodeOptionsHasProperty1
+|graph-options=Mediawiki:KnowledgegraphGraphOptions
+|property-options?HasProperty1=Mediawiki:KnowledgegraphNodeOptionsHasProperty1
 |show-toolbar=false
 |show-property-type=false
 |width=100%
