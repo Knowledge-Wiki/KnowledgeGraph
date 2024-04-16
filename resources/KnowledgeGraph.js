@@ -93,6 +93,7 @@ KnowledgeGraph = function () {
 		}
 
 		Nodes.forEach((node) => {
+		
 			if (PropIdPropLabelMap[id].indexOf(node.id) !== -1) {
 				updateNodes.push({
 					id: node.id,
@@ -287,7 +288,20 @@ KnowledgeGraph = function () {
 				var property = data[label].properties[i];
 
 				if (!(property.canonicalLabel in PropColors)) {
-					PropColors[property.canonicalLabel] = randomHSL();
+					var color_;
+					function colorExists() {
+						for ( var j in PropColors ) {
+							if ( PropColors[j] === color_ ) {
+								return true;
+							}
+						}
+						return false;
+					}
+					do {
+						color_ = randomHSL();
+					} while (colorExists());
+
+					PropColors[property.canonicalLabel] = color_;
 				}
 
 				var options =
@@ -310,7 +324,9 @@ KnowledgeGraph = function () {
 						? property.preferredLabel
 						: property.canonicalLabel;
 
-				PropIdPropLabelMap[legendLabel] = [];
+				if ( !(legendLabel in PropIdPropLabelMap ) ) {
+					PropIdPropLabelMap[legendLabel] = [];
+				}
 
 				var propLabel =
 					legendLabel +
