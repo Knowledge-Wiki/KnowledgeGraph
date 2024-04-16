@@ -52,10 +52,7 @@ KnowledgeGraph = function () {
 	}
 
 	function dispatchEvent_LegendClick(event, id) {
-		console.log('id', id);
-		//toggle color
 		var container = $(LegendDiv).find('#' + id.replace(/ /g, '_'))[0];
-		console.log('container.dataset.active', container.dataset.active);
 		if (container.dataset.active === 'true') {
 			container.dataset.active = false;
 			container.style.background = '#FFFFFF';
@@ -63,28 +60,39 @@ KnowledgeGraph = function () {
 			container.dataset.active = true;
 			container.style.background = container.dataset.active_color;
 		}
-		// if (this.config.onLegendClick) this.config.onLegendClick(id);
-		console.log('container.dataset.active', container.dataset.active);
-		//HideNodesRec(id);
-
-		//console.log('id', id);
-		//console.log('PropIdPropLabelMap', PropIdPropLabelMap);
 		var updateNodes = [];
+
+		// @TODO must be recursive
 		Nodes.forEach((node) => {
-			// console.log('node.id',node.id);
-			if (PropIdPropLabelMap[node.id] === id) {
-				console.log('PropIdPropLabelMap[node.id] === id');
+			if (PropIdPropLabelMap[id].indexOf(node.id) !== -1) {
 				updateNodes.push({
 					id: node.id,
 					hidden: container.dataset.active === 'true' ? false : true,
 				});
+
+				var connectedNodes = Network.getConnectedNodes(node.id);
+
+				for (var nodeId_ of connectedNodes) {
+					var connectedEdgesIds = Network.getConnectedEdges(nodeId_);
+					var connectedEdges = Edges.get(connectedEdgesIds);
+
+					var found = false;
+					connectedEdges.forEach((edge) => {
+						if (edge.to === node.id) {
+							found = true;
+						}
+					});
+
+					if (!found) {
+						updateNodes.push({
+							id: nodeId_,
+							hidden: container.dataset.active === 'true' ? false : true,
+						});
+					}
+				}
 			}
 		});
-		Edges.forEach((node) => {
-			//  console.log('node.id',node.id);
-		});
 
-		console.log('updateNodes', updateNodes);
 		Nodes.update(updateNodes);
 	}
 
@@ -293,6 +301,8 @@ KnowledgeGraph = function () {
 						? property.preferredLabel
 						: property.canonicalLabel;
 
+				PropIdPropLabelMap[legendLabel] = [];
+
 				var propLabel =
 					legendLabel +
 					(!Config['show-property-type']
@@ -310,7 +320,7 @@ KnowledgeGraph = function () {
 				switch (property.typeId) {
 					case '_wpg':
 						for (var ii in property.values) {
-							PropIdPropLabelMap[property.values[ii].value] = legendLabel;
+							PropIdPropLabelMap[legendLabel].push(property.values[ii].value);
 
 							var edgeConfig = jQuery.extend(
 								JSON.parse(JSON.stringify(Config.graphOptions.edges)),
@@ -340,7 +350,7 @@ KnowledgeGraph = function () {
 					default:
 						var valueId = `${i}#${uuidv4()}`;
 
-						PropIdPropLabelMap[valueId] = legendLabel;
+						PropIdPropLabelMap[legendLabel].push(valueId);
 
 						Edges.add({
 							from: label,
@@ -1979,4 +1989,3 @@ $(document).ready(async function () {
 		graph.initialize(container, containerToolbar, containerOptions, config);
 	});
 });
-

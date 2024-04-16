@@ -544,12 +544,14 @@ nodes=TestPage
 					$obj_ = [];
 					if ( $typeID === '_wpg' ) {
 						$title_ = $dataItem->getTitle();
-					 	if ( $title_ && $title_->isKnown() && !isset( self::$data[$title_->getFullText()] ) ) {
-					 		if ( $depth < $maxDepth ) {					 		
-								self::setSemanticData( $title_, $onlyProperties, ++$depth, $maxDepth );
-							} else {
-								// not loaded
-								self::$data[$title_->getFullText()] = null;
+					 	if ( $title_ && $title_->isKnown() ) {
+					 		if( !isset( self::$data[$title_->getFullText()] ) ) {
+					 			if ( $depth < $maxDepth ) {					 		
+									self::setSemanticData( $title_, $onlyProperties, ++$depth, $maxDepth );
+								} else {
+									// not loaded
+									self::$data[$title_->getFullText()] = null;
+								}
 							}
 							$obj_['value'] = $title_->getFullText();
 	
