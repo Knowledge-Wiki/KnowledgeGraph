@@ -648,6 +648,8 @@ KnowledgeGraph = function () {
 			LegendDiv.id = 'legendContainer';
 			// var legendColors = {};
 			container.parentElement.append(LegendDiv);
+			$(LegendDiv).width(Config.width);
+			$(LegendDiv).height(Config.width);
 		}
 
 		createNodes(Config.data);
@@ -2008,6 +2010,9 @@ $(document).ready(async function () {
 			}
 		} else {
 			config.graphOptions.configure.enabled = false;
+
+			$(container).width(config.width);
+			$(container).height(config.width);
 		}
 
 		console.log('config', config);
