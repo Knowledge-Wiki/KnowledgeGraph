@@ -61,35 +61,44 @@ KnowledgeGraph = function () {
 			container.style.background = container.dataset.active_color;
 		}
 		var updateNodes = [];
+		var visited = [];
 
-		// @TODO must be recursive
+		function toggleConnectedNodes(nodeId) {
+			if (visited.indexOf(nodeId) !== -1) {
+				return;
+			}
+			visited.push(nodeId);
+
+			var connectedNodes = Network.getConnectedNodes(nodeId);
+
+			for (var nodeId_ of connectedNodes) {
+				var connectedEdgesIds = Network.getConnectedEdges(nodeId_);
+				var connectedEdges = Edges.get(connectedEdgesIds);
+
+				var found = false;
+				connectedEdges.forEach((edge) => {
+					if (edge.to === nodeId) {
+						found = true;
+					}
+				});
+
+				if (!found) {
+					updateNodes.push({
+						id: nodeId_,
+						hidden: container.dataset.active === 'true' ? false : true,
+					});
+					toggleConnectedNodes(nodeId_);
+				}
+			}
+		}
+
 		Nodes.forEach((node) => {
 			if (PropIdPropLabelMap[id].indexOf(node.id) !== -1) {
 				updateNodes.push({
 					id: node.id,
 					hidden: container.dataset.active === 'true' ? false : true,
 				});
-
-				var connectedNodes = Network.getConnectedNodes(node.id);
-
-				for (var nodeId_ of connectedNodes) {
-					var connectedEdgesIds = Network.getConnectedEdges(nodeId_);
-					var connectedEdges = Edges.get(connectedEdgesIds);
-
-					var found = false;
-					connectedEdges.forEach((edge) => {
-						if (edge.to === node.id) {
-							found = true;
-						}
-					});
-
-					if (!found) {
-						updateNodes.push({
-							id: nodeId_,
-							hidden: container.dataset.active === 'true' ? false : true,
-						});
-					}
-				}
+				toggleConnectedNodes(node.id);
 			}
 		});
 
@@ -1989,3 +1998,4 @@ $(document).ready(async function () {
 		graph.initialize(container, containerToolbar, containerOptions, config);
 	});
 });
+
