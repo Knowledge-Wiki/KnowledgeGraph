@@ -52,3 +52,9 @@
     position: relative;
 	margin: 0 32px;
 }
+
+.KnowledgeGraphTable .oo-ui-toolbar-position-top > .oo-ui-toolbar-bar {
+	border-bottom: none;
+	box-shadow: none;
+}
+

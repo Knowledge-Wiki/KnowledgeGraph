@@ -22,11 +22,13 @@
         "KnowledgeGraph":"includes/KnowledgeGraph.php",
         "SpecialKnowledgeGraphDesigner":"includes/specials/SpecialKnowledgeGraphDesigner.php",
         "KnowledgeGraphApiLoadNodes": "includes/api/KnowledgeGraphApiLoadNodes.php",
-        "KnowledgeGraphApiLoadProperties": "includes/api/KnowledgeGraphApiLoadProperties.php"
+        "KnowledgeGraphApiLoadProperties": "includes/api/KnowledgeGraphApiLoadProperties.php",
+        "KnowledgeGraphApiLoadCategories": "includes/api/KnowledgeGraphApiLoadCategories.php"
 	},
 	"APIModules": {
 		"knowledgegraph-load-nodes": "KnowledgeGraphApiLoadNodes",
-		"knowledgegraph-load-properties": "KnowledgeGraphApiLoadProperties"
+		"knowledgegraph-load-properties": "KnowledgeGraphApiLoadProperties",
+		"knowledgegraph-load-categories": "KnowledgeGraphApiLoadCategories"
 	},
 	"SpecialPages": {
 		"KnowledgeGraphDesigner": "SpecialKnowledgeGraphDesigner"
@@ -59,6 +61,7 @@
 				"oojs-ui-windows",
 				"mediawiki.widgets",
 				"mediawiki.widgets.TitlesMultiselectWidget",
+				"mediawiki.widgets.CategoryMultiselectWidget",
 				"oojs-ui.styles.icons-moderation",
 				"oojs-ui.styles.icons-content",
 				"oojs-ui.styles.icons-editing-core",
@@ -84,7 +87,9 @@
 				"knowledgegraph-dialog-edit-offset",
 				"knowledgegraph-dialog-tabs-by-article",
 				"knowledgegraph-dialog-select-properties",
+				"knowledgegraph-dialog-select-categories",
 				"knowledgegraph-dialog-tabs-by-properties",
+				"knowledgegraph-dialog-tabs-by-categories",
 				"knowledgegraph-dialog-results-no-properties",
 				"knowledgegraph-dialog-results-no-articles",
 				"knowledgegraph-dialog-results-existing-node",

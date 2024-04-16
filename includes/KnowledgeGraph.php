@@ -23,9 +23,9 @@ class KnowledgeGraph {
 		if ( !defined( 'SMW_VERSION' ) ) {
 			return;
 		}
-		self::$SMWOptions = new \SMWRequestOptions();
-		self::$SMWOptions->limit = 500;
-		self::$SMWApplicationFactory = SMW\ApplicationFactory::getInstance();
+		// self::$SMWOptions = new \SMWRequestOptions();
+		// self::$SMWOptions->limit = 500;
+		// self::$SMWApplicationFactory = SMW\ApplicationFactory::getInstance();
 		self::$SMWStore = \SMW\StoreFactory::getStore();
 		self::$SMWDataValueFactory = SMW\DataValueFactory::getInstance();
 	}
@@ -86,6 +86,9 @@ class KnowledgeGraph {
 
 	/** @var array */
 	public static $graphs = [];
+
+	/** @var array */
+	public static $categories = [];
 
 	/**
 	 * @param OutputPage $outputPage
@@ -186,6 +189,7 @@ nodes=TestPage
 		[ $values, $params ] = self::parseParameters( $argv, array_keys( $defaultParameters ) );
 
 		$params = self::applyDefaultParams( $defaultParameters, $params );
+		$params['show-toolbar'] = false;
 
 		$propertyOptions = [];
 		// property-related options
@@ -408,6 +412,28 @@ nodes=TestPage
 	}
 
 	/**
+	 * @see 
+	 * @param string $category
+	 * @return array
+	 */
+	public static function articlesInCategories( $category ) {
+		$dbr = wfGetDB( DB_REPLICA );
+		$res = $dbr->select( 'categorylinks',
+			[ 'pageid' =>'cl_from' ],
+			[ 'cl_to' => $category ],
+			__METHOD__
+		);
+		$ret = [];
+		foreach ( $res as $row ) {
+			$title_ = Title::newFromID( $row->pageid );
+			if ( $title_ ) {
+				$ret[] = $title_;
+			}
+		}
+		return $ret;
+	}
+
+	/**
 	 * @see https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/extensions/PageProperties/+/refs/heads/1.0.3/includes/PageProperties.php
 	 * @param Title $title
 	 * @param array $onlyProperties
@@ -420,10 +446,29 @@ nodes=TestPage
 		$langCode = \RequestContext::getMain()->getLanguage()->getCode();
 		$propertyRegistry = \SMW\PropertyRegistry::getInstance();
 		$dataTypeRegistry = \SMW\DataTypeRegistry::getInstance();
-		$subject = new \SMW\DIWikiPage( $title->getDbKey(), $title->getNamespace() );
-		$semanticData = self::$SMWStore->getSemanticData( $subject );
+
+		$wikiPage = self::getWikiPage( $title );
+
+		$categories = [];
+		$iterator = $wikiPage->getCategories();
+
+		while ( $iterator->valid() ) {
+			$text_ = $iterator->current()->getText();
+			$categories[] = $text_;
+			$iterator->next();
+
+			// if ( !array_key_exists( $text_, self::$categories ) ) {
+			// 	self::$categories[$text_] = [];
+			// }
+
+			// if ( !in_array( $title->getFullText(), self::$categories[$text_] ) ) { 
+			// 	self::$categories[$text_][] = $title->getFullText();
+			// }
+		}
+
 		$output = [
-			'properties' => []
+			'properties' => [],
+			'categories' => $categories
 		];
 
 		if ( $title->getNamespace() === NS_FILE ) {
@@ -436,6 +481,9 @@ nodes=TestPage
 		// ***important, this prevents infinite recursion
 		// no properties
 		self::$data[$title->getFullText()] = [];
+
+		$subject = new \SMW\DIWikiPage( $title->getDbKey(), $title->getNamespace() );
+		$semanticData = self::$SMWStore->getSemanticData( $subject );
 
 		foreach ( $semanticData->getProperties() as $property ) {
 			$key = $property->getKey();
@@ -495,7 +543,7 @@ nodes=TestPage
 					if ( $typeID === '_wpg' ) {
 						$title_ = $dataItem->getTitle();
 					 	if ( $title_ && $title_->isKnown() && !isset( self::$data[$title_->getFullText()] ) ) {
-					 		if ( $depth <= $maxDepth ) {					 		
+					 		if ( $depth < $maxDepth ) {					 		
 								self::setSemanticData( $title_, $onlyProperties, ++$depth, $maxDepth );
 							} else {
 								// not loaded

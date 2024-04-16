@@ -24,6 +24,7 @@ KnowledgeGraph = function () {
 	var WindowManagerNonModal;
 	var DialogCredits = 'dialog-credits';
 	var PropColors = {};
+	var Categories = {};
 
 	function deleteNode(nodeId) {
 		var children = Network.getConnectedNodes(nodeId);
@@ -49,10 +50,18 @@ KnowledgeGraph = function () {
 				depth: obj.depth,
 				properties: JSON.stringify(Config['properties']),
 			};
-		} else {
+		} else if (obj.properties !== null) {
 			var payload = {
 				action: 'knowledgegraph-load-properties',
 				properties: obj.properties.join('|'),
+				depth: obj.depth,
+				limit: obj.limit,
+				offset: obj.offset,
+			};
+		} else if (obj.categories !== null) {
+			var payload = {
+				action: 'knowledgegraph-load-categories',
+				categories: obj.categories.join('|'),
 				depth: obj.depth,
 				limit: obj.limit,
 				offset: obj.offset,
@@ -65,9 +74,9 @@ KnowledgeGraph = function () {
 			mw.loader.using('mediawiki.api', function () {
 				new mw.Api()
 					.postWithToken('csrf', payload)
-					.done(function (thisRes) {
-						// console.log('thisRes', thisRes);
+					.done(function (thisRes) {						
 						if ('data' in thisRes[payload.action]) {
+							// console.log('data', data);
 							var data_ = JSON.parse(thisRes[payload.action].data);
 							resolve(data_);
 						} else {
@@ -175,6 +184,17 @@ KnowledgeGraph = function () {
 			// not loaded
 			if (data[label] === null) {
 				continue;
+			}
+
+			if (!(label in Categories)) {
+				Categories[label] = [];
+			}
+
+			for (var i in data[label].categories) {
+				var category = data[label].categories[i];
+				if (Categories[label].indexOf(category) === -1) {
+					Categories[label].push(category);
+				}
 			}
 
 			// i is property Article title
@@ -449,8 +469,8 @@ KnowledgeGraph = function () {
 		Container = container;
 		ContainerOptions = containerOptions;
 
-		$(container).width(config.width);
-		$(container).height(config.width);
+		// $(container).width(config.width);
+		// $(container).height(config.width);
 
 		if (config['show-toolbar']) {
 			var toolbar = createToolbar();
@@ -782,10 +802,74 @@ KnowledgeGraph = function () {
 			this.tabItem.setLabel(mw.msg('knowledgegraph-dialog-tabs-by-properties'));
 		};
 
+		function TabPanelThreeLayout(name, config) {
+			TabPanelThreeLayout.super.call(this, name, config);
+			var fieldsetLayout = new OO.ui.FieldsetLayout();
+
+			self.categoriesInputWidget = new mw.widgets.CategoryMultiselectWidget({
+				autocomplete: true,
+				// suggestions: true,
+				// addQueryInput: true,
+				// $overlay: true,
+				// allowSuggestionsWhenEmpty: true,
+			});
+
+			var items = [];
+			items.push(
+				new OO.ui.FieldLayout(self.categoriesInputWidget, {
+					label: mw.msg('knowledgegraph-dialog-select-categories'),
+					align: 'top',
+					// helpInline: true,
+					// help: 'Type an article title in the "MediaWiki" namespace',
+				})
+			);
+
+			self.depthInputWidgetCategories = new OO.ui.NumberInputWidget({
+				value: 0,
+			});
+
+			items.push(
+				new OO.ui.FieldLayout(self.depthInputWidgetCategories, {
+					label: mw.msg('knowledgegraph-dialog-edit-depth'),
+					align: 'top',
+				})
+			);
+
+			self.limitInputWidgetCategories = new OO.ui.NumberInputWidget({
+				value: 100,
+			});
+
+			items.push(
+				new OO.ui.FieldLayout(self.limitInputWidgetCategories, {
+					label: mw.msg('knowledgegraph-dialog-edit-limit'),
+					align: 'top',
+				})
+			);
+
+			self.offsetInputWidgetCategories = new OO.ui.NumberInputWidget({
+				value: 0,
+			});
+
+			items.push(
+				new OO.ui.FieldLayout(self.offsetInputWidgetCategories, {
+					label: mw.msg('knowledgegraph-dialog-edit-offset'),
+					align: 'top',
+				})
+			);
+
+			fieldsetLayout.addItems(items);
+
+			this.$element.append(fieldsetLayout.$element);
+		}
+		OO.inheritClass(TabPanelThreeLayout, OO.ui.TabPanelLayout);
+		TabPanelThreeLayout.prototype.setupTabItem = function () {
+			this.tabItem.setLabel(mw.msg('knowledgegraph-dialog-tabs-by-categories'));
+		};
 		var tabPanel1 = new TabPanelOneLayout('by-article'),
 			tabPanel2 = new TabPanelTwoLayout('by-properties');
+		tabPanel3 = new TabPanelThreeLayout('by-categories');
 
-		indexLayout.addTabPanels([tabPanel1, tabPanel2]);
+		indexLayout.addTabPanels([tabPanel1, tabPanel2, tabPanel3]);
 
 		this.indexLayout = indexLayout;
 
@@ -914,6 +998,7 @@ KnowledgeGraph = function () {
 					break;
 
 				case 'by-properties':
+				case 'by-categories':
 					// mw.msg
 					this.panelB.$element.append(
 						'<h3>' +
@@ -923,7 +1008,7 @@ KnowledgeGraph = function () {
 					// @TODO display a message if all nodes exist
 
 					for (var i in data) {
-						if (!(i in Data)) {
+						if (!(i in Data) && data[i] !== null ) {
 							var url = mw.config.get('wgArticlePath').replace('$1', i);
 
 							$el.append(
@@ -972,6 +1057,7 @@ KnowledgeGraph = function () {
 							var selectedTab = selfDialog.indexLayout.getCurrentTabPanelName();
 							var titleValue = null;
 							var properties = null;
+							var categories = null;
 							var depth, limit, offset;
 
 							switch (selectedTab) {
@@ -1005,6 +1091,19 @@ KnowledgeGraph = function () {
 									depth = selfDialog.depthInputWidgetProperties.getValue();
 									limit = selfDialog.limitInputWidgetProperties.getValue();
 									offset = selfDialog.offsetInputWidgetProperties.getValue();
+									break;
+
+								case 'by-categories':
+									categories = selfDialog.categoriesInputWidget.getValue();
+
+									if (!categories.length) {
+										resolve();
+										return;
+									}
+									depth = selfDialog.depthInputWidgetCategories.getValue();
+									limit = selfDialog.limitInputWidgetCategories.getValue();
+									offset = selfDialog.offsetInputWidgetCategories.getValue();
+									break;
 
 								// console.log('properties', properties);
 							}
@@ -1012,6 +1111,7 @@ KnowledgeGraph = function () {
 							loadNodes({
 								title: titleValue,
 								properties,
+								categories,
 								depth: parseInt(depth),
 								limit: parseInt(limit),
 								offset: parseInt(offset),
@@ -1085,10 +1185,10 @@ KnowledgeGraph = function () {
 					var properties = [];
 					var propertyOptions = '';
 					for (var i in Data) {
-						if ( nodes.indexOf(i) === -1) {
+						if (nodes.indexOf(i) === -1) {
 							nodes.push(i);
 						}
-						if ( Data[i] === null ) {
+						if (Data[i] === null) {
 							continue;
 						}
 						for (var ii in Data[i].properties) {
@@ -1105,8 +1205,7 @@ nodes=${nodes.join(', ')}
 |properties=${properties.join(', ')}
 |depth=0
 |graph-options=
-${propertyOptions}|show-toolbar=false
-|show-property-type=true
+${propertyOptions}|show-property-type=true
 |width=400px
 |height=400px
 }}`;
@@ -1733,13 +1832,16 @@ $(document).ready(async function () {
 			} else {
 				var $container = $(this).clone();
 
+				// *** unfortunately we cannot use the
+				// following, since colspan does not work
 				$table = $(
-					`
-<div class="KnowledgeGraphTable" style="display:table_" style="height:` +
+					`<div class="KnowledgeGraphTable" style="display:table;height:` +
 						config.height +
+						`;width:` +
+						config.width +
 						`">
-	<div style="column-span:all;width:100%" class="KnowledgeGraph-toolbar">
-		
+	<div style="display:table-row">
+		<div colspan="2" style="display:table-cell;width:100%" class="KnowledgeGraph-toolbar"></div>
 	</div>
 	<div style="display:table-row">
 		<div class="KnowledgeGraph-network" style="display:table-cell;width:50%;vertical-align:top"></div>
@@ -1750,6 +1852,24 @@ $(document).ready(async function () {
 </div>`
 				);
 
+				$table = $(
+					`<table class="KnowledgeGraphTable" style="height:` +
+						config.height +
+						`;width:` +
+						config.width +
+						`">
+	<tr>
+		<td colspan="2" class="KnowledgeGraph-toolbar"></td>
+	</tr>
+	<tr>
+		<td class="KnowledgeGraph-network" style="width:50%;vertical-align:top"></td>
+		<td class="KnowledgeGraph-options" style="width:50%"><div style="width:auto;height:` +
+						config.height +
+						`;overflow:scroll"></div></td>
+	</tr>
+</table>`
+				);
+
 				$table.find('.KnowledgeGraph-network').append($container);
 				config.graphOptions.configure.container = $table
 					.find('.KnowledgeGraph-options > div')
@@ -1757,6 +1877,7 @@ $(document).ready(async function () {
 
 				$(this).replaceWith($table);
 
+				// network container
 				container = $container.get(0);
 				containerToolbar = $table.find('.KnowledgeGraph-toolbar').get(0);
 				containerOptions = $table.find('.KnowledgeGraph-options').get(0);
