@@ -35,6 +35,8 @@ class SpecialKnowledgeGraphDesigner extends SpecialPage {
 			'height' => [ '600px', 'string' ],
 			'show-toolbar' => [ 'true', 'boolean' ],
 			'show-property-type' => [ 'false', 'boolean' ],
+			'properties-panel' => [ 'false', 'boolean' ],
+			'categories-panel' => [ 'false', 'boolean' ]
 		];
 
 		$params = [];

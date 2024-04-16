@@ -58,3 +58,9 @@
 	box-shadow: none;
 }
 
+.legend-element-container {
+	margin: 2px;
+	padding: 4px;
+}
+
+

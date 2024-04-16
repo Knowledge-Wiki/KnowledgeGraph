@@ -25,6 +25,68 @@ KnowledgeGraph = function () {
 	var DialogCredits = 'dialog-credits';
 	var PropColors = {};
 	var Categories = {};
+	var LegendDiv;
+	var PropIdPropLabelMap = {};
+
+	function addLegendEntry(id, label, color) {
+		if ($(LegendDiv).find('#' + id.replace(/ /g, '_')).length) {
+			return;
+		}
+
+		var container = document.createElement('button');
+		container.className = 'legend-element-container';
+		container.classList.add('btn', 'btn-outline-light');
+		container.id = id.replace(/ /g, '_');
+		container.style.color = 'black';
+		container.style.background = color;
+		container.innerHTML = label;
+
+		container.dataset.active = true;
+		container.dataset.active_color = color;
+
+		container.addEventListener('click', (event) =>
+			dispatchEvent_LegendClick(event, id)
+		);
+
+		LegendDiv.append(container);
+	}
+
+	function dispatchEvent_LegendClick(event, id) {
+		console.log('id', id);
+		//toggle color
+		var container = $(LegendDiv).find('#' + id.replace(/ /g, '_'))[0];
+		console.log('container.dataset.active', container.dataset.active);
+		if (container.dataset.active === 'true') {
+			container.dataset.active = false;
+			container.style.background = '#FFFFFF';
+		} else {
+			container.dataset.active = true;
+			container.style.background = container.dataset.active_color;
+		}
+		// if (this.config.onLegendClick) this.config.onLegendClick(id);
+		console.log('container.dataset.active', container.dataset.active);
+		//HideNodesRec(id);
+
+		//console.log('id', id);
+		//console.log('PropIdPropLabelMap', PropIdPropLabelMap);
+		var updateNodes = [];
+		Nodes.forEach((node) => {
+			// console.log('node.id',node.id);
+			if (PropIdPropLabelMap[node.id] === id) {
+				console.log('PropIdPropLabelMap[node.id] === id');
+				updateNodes.push({
+					id: node.id,
+					hidden: container.dataset.active === 'true' ? false : true,
+				});
+			}
+		});
+		Edges.forEach((node) => {
+			//  console.log('node.id',node.id);
+		});
+
+		console.log('updateNodes', updateNodes);
+		Nodes.update(updateNodes);
+	}
 
 	function deleteNode(nodeId) {
 		var children = Network.getConnectedNodes(nodeId);
@@ -74,7 +136,7 @@ KnowledgeGraph = function () {
 			mw.loader.using('mediawiki.api', function () {
 				new mw.Api()
 					.postWithToken('csrf', payload)
-					.done(function (thisRes) {						
+					.done(function (thisRes) {
 						if ('data' in thisRes[payload.action]) {
 							// console.log('data', data);
 							var data_ = JSON.parse(thisRes[payload.action].data);
@@ -226,17 +288,30 @@ KnowledgeGraph = function () {
 					options.color = PropColors[property.canonicalLabel];
 				}
 
-				var propLabel =
-					(property.preferredLabel !== ''
+				var legendLabel =
+					property.preferredLabel !== ''
 						? property.preferredLabel
-						: property.canonicalLabel) +
+						: property.canonicalLabel;
+
+				var propLabel =
+					legendLabel +
 					(!Config['show-property-type']
 						? ''
 						: ' (' + property.typeLabel + ')');
 
+				if (Config['properties-panel']) {
+					addLegendEntry(
+						property.canonicalLabel,
+						legendLabel,
+						PropColors[property.canonicalLabel]
+					);
+				}
+
 				switch (property.typeId) {
 					case '_wpg':
 						for (var ii in property.values) {
+							PropIdPropLabelMap[property.values[ii].value] = legendLabel;
+
 							var edgeConfig = jQuery.extend(
 								JSON.parse(JSON.stringify(Config.graphOptions.edges)),
 								{
@@ -264,6 +339,8 @@ KnowledgeGraph = function () {
 					// @TODO complete with other property types
 					default:
 						var valueId = `${i}#${uuidv4()}`;
+
+						PropIdPropLabelMap[valueId] = legendLabel;
 
 						Edges.add({
 							from: label,
@@ -461,6 +538,22 @@ KnowledgeGraph = function () {
 		return toolbar;
 	}
 
+	function HideNodesRec(nodeId) {
+		var children = Network.getConnectedNodes(nodeId);
+		// children = children.filter((x) => excludedIds.indexOf(x) === -1);
+		console.log('children', children);
+		var updateNodes = [];
+		for (var nodeId_ of children) {
+			if (!(nodeId_ in Data)) {
+				updateNodes.push({
+					id: nodeId_,
+					hidden: !Nodes.get(nodeId_).hidden,
+				});
+			}
+		}
+		Nodes.update(updateNodes);
+	}
+
 	function initialize(container, containerToolbar, containerOptions, config) {
 		// console.log('config', config);
 
@@ -511,6 +604,15 @@ KnowledgeGraph = function () {
 			$(containerOptions)
 				.find('.vis-configuration.vis-config-option-container')
 				.prepend(messageWidget.$element);
+		}
+
+		if (Config['properties-panel']) {
+			LegendDiv = document.createElement('div');
+
+			LegendDiv.style.position = 'relative';
+			LegendDiv.id = 'legendContainer';
+			// var legendColors = {};
+			container.parentElement.append(LegendDiv);
 		}
 
 		createNodes(Config.data);
@@ -571,21 +673,6 @@ KnowledgeGraph = function () {
 			}
 
 			// var excludedIds = [params.nodes[0]];
-			function HideNodesRec(nodeId) {
-				var children = Network.getConnectedNodes(nodeId);
-				// children = children.filter((x) => excludedIds.indexOf(x) === -1);
-
-				var updateNodes = [];
-				for (var nodeId_ of children) {
-					if (!(nodeId_ in Data)) {
-						updateNodes.push({
-							id: nodeId_,
-							hidden: !Nodes.get(nodeId_).hidden,
-						});
-					}
-				}
-				Nodes.update(updateNodes);
-			}
 
 			HideNodesRec(params.nodes[0]);
 		});
@@ -1008,7 +1095,7 @@ KnowledgeGraph = function () {
 					// @TODO display a message if all nodes exist
 
 					for (var i in data) {
-						if (!(i in Data) && data[i] !== null ) {
+						if (!(i in Data) && data[i] !== null) {
 							var url = mw.config.get('wgArticlePath').replace('$1', i);
 
 							$el.append(
@@ -1208,6 +1295,8 @@ nodes=${nodes.join(', ')}
 ${propertyOptions}|show-property-type=true
 |width=400px
 |height=400px
+|properties-panel=false
+|categories-panel=false
 }}`;
 					navigator.clipboard.writeText(text).then(function () {
 						alert(mw.msg('knowledgegraph-copied-to-clipboard'));
@@ -1890,3 +1979,4 @@ $(document).ready(async function () {
 		graph.initialize(container, containerToolbar, containerOptions, config);
 	});
 });
+

@@ -182,6 +182,8 @@ nodes=TestPage
 			'height' => [ '400px', 'string' ],
 			'show-toolbar' => [ 'false', 'boolean' ],
 			'show-property-type' => [ 'false', 'boolean' ],
+			'properties-panel' => [ 'false', 'boolean' ],
+			'categories-panel' => [ 'false', 'boolean' ],
 		];
 
 		self::initSMW();
