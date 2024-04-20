@@ -112,6 +112,9 @@
 		},
 		"KnowledgeGraphShowImages": {
 			"value": true
+		},
+		"KnowledgeGraphShowSidebarLink": {
+			"value": false
 		}
 	}
 }

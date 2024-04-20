@@ -136,7 +136,7 @@ class KnowledgeGraph {
 	 * @return void
 	 */
 	public static function onSidebarBeforeOutput( $skin, &$sidebar ) {
-		if ( !empty( $GLOBALS['wgKnowledgeGraphDisableSidebarLink'] ) ) {
+		if ( empty( $GLOBALS['wgKnowledgeGraphShowSidebarLink'] ) ) {
 			return;
 		}
 		$title = $skin->getTitle();
