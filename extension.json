@@ -2,7 +2,7 @@
     "manifest_version": 2,
     "name": "KnowledgeGraph",
     "version": "1.0",
-    "author": "Thomas-topway-it for KM-A",
+    "author": "Thomas-topway-it for [https://knowledge.wiki KM-A]",
     "url": "https://github.com/SemanticMediaWiki/KnowledgeGraph",
     "descriptionmsg": "knowledge-graph-desc",
     "namemsg": "knowledge-graph-name",
