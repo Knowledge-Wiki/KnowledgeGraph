@@ -3,7 +3,7 @@
 	},
 
 	"knowledge-graph-name": "KnowledgeGraph",
-	"knowledge-graph-desc": "Stellt Daten in Semantic MediaWiki mittels VisNetwork.js dar.",
+	"knowledge-graph-desc": "Stellt den Wissensgraph in Semantic MediaWiki mittels VisNetwork.js dar.",
 	"knowledge-graph-wrapper-loading": "Wissensgraph lädt...",
 
 	"apihelp-knowledgegraph-load-nodes-summary": "rufe Attribute der angegebenen Seiten ab",
