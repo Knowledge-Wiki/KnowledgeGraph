@@ -3,7 +3,7 @@
 	},
 
 	"knowledge-graph-name": "KnowledgeGraph",
-	"knowledge-graph-desc": "Visualizes SemanticMediawiki data with VisNetwork.js",
+	"knowledge-graph-desc": "Visualizes the knowledge graph in SemanticMediawiki with VisNetwork.js",
 	"knowledge-graph-wrapper-loading": "graph is loading...",
 	
 	"apihelp-knowledgegraph-load-nodes-summary": "retrieve semantic properties of given articles",
